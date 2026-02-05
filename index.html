@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Əmək Münasibətləri - İdarəetmə Paneli</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* BASE STYLES */
+        :root {
+            --primary: #E30613; --bg-body: #F4F5F7; --text-main: #172B4D; --text-muted: #6B778C; --border-color: #DFE1E6;
+            --st-new-bg: #E3FCEF; --st-new-text: #006644;
+            --st-exist-bg: #DEEBFF; --st-exist-text: #0747A6;
+            --st-trans-bg: #FFF0B3; --st-trans-text: #172B4D;
+            --st-cancel-bg: #FFEBE6; --st-cancel-text: #BF2600;
+        }
+        * { box-sizing: border-box; outline: none; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background-color: var(--bg-body); color: var(--text-main); padding-bottom: 100px; }
+        .container { max-width: 1440px; margin: 0 auto; padding: 0 30px; }
+        
+        /* HEADER */
+        .header { background: #fff; padding: 16px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000; }
+        .header-content { display: flex; justify-content: space-between; align-items: center; }
+        .brand { display: flex; align-items: center; gap: 12px; font-size: 1.2rem; font-weight: 800; }
+        .brand i { color: var(--primary); font-size: 1.5rem; }
+        .header-actions { display: flex; gap: 10px; }
+        
+        .btn { padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; display: flex; align-items: center; gap: 8px; transition: 0.2s; font-size: 0.9rem; }
+        .btn-primary { background: var(--primary); color: white; } .btn-primary:hover { background: #B00000; }
+        .btn-dark { background: var(--text-main); color: white; } .btn-dark:hover { background: #000; }
+        .btn-outline { background: white; border: 1px solid var(--border-color); color: var(--text-main); } .btn-outline:hover { background: #F4F5F7; }
+        .btn-sm { padding: 4px 8px; font-size: 0.8rem; }
+        .btn-danger { background: #FFEBE6; color: #BF2600; } .btn-danger:hover { background: #FFBDAD; }
+
+        /* LOADER */
+        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 2000; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* STATS */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 30px; }
+        .stat-card { background: #fff; padding: 24px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 20px; }
+        .stat-icon { width: 56px; height: 56px; border-radius: 12px; background: rgba(227,6,19,0.08); color: var(--primary); display: flex; justify-content: center; align-items: center; font-size: 1.5rem; }
+        .stat-text h3 { margin: 0; font-size: 1.8rem; font-weight: 800; }
+
+        /* FILTERS */
+        .filters-container { background: #fff; padding: 24px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; gap: 24px; align-items: flex-start; margin: 30px 0; }
+        .filter-group { flex: 1; }
+        .filter-group label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
+        .form-select { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; background: #FAFBFC; height: 45px; }
+        .status-wrapper { display: flex; gap: 15px; flex-wrap: wrap; padding-top: 5px; }
+        .status-label { display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; border: 1px solid #DFE1E6; padding: 8px 12px; border-radius: 6px; }
+        .status-label:hover { background: #F4F5F7; }
+        .status-label input { transform: scale(1.2); cursor: pointer; accent-color: var(--primary); }
+
+        /* CARDS */
+        .grid-container { display: grid; gap: 40px; }
+        .emp-card { background: #fff; border-radius: 16px; border: 1px solid var(--border-color); overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .emp-header { padding: 20px 30px; background: linear-gradient(to right, #fff, #FAFBFC); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .emp-profile { display: flex; align-items: center; gap: 16px; }
+        .avatar { width: 50px; height: 50px; background: var(--text-main); color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 1.2rem; }
+        
+        .analytics-box { display: none; gap: 40px; text-align: right; }
+        .analytics-box.visible { display: flex; animation: fadeIn 0.5s; }
+        .ab-item div:first-child { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
+        .ab-item div:last-child { font-size: 1.4rem; font-weight: 800; color: var(--primary); }
+
+        /* TABLE */
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; }
+        th { text-align: left; padding: 16px 24px; font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; background: #FAFBFC; border-bottom: 1px solid var(--border-color); }
+        td { padding: 14px 24px; font-size: 0.9rem; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        
+        .col-process { font-weight: 700; width: 18%; color: var(--text-main); border-right: 3px solid #E30613; }
+        .col-cat { width: 12%; color: var(--text-muted); font-weight: 500; }
+        .col-task { width: 35%; }
+        .task-desc { display: block; font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; font-style: italic; }
+        .col-freq { width: 12%; font-size: 0.85rem; color: var(--text-muted); }
+        .col-status { width: 15%; text-align: center; }
+        .col-actions { width: 8%; text-align: right; }
+
+        .badge { display: inline-flex; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; min-width: 120px; justify-content: center; }
+        .st-new { background: var(--st-new-bg); color: var(--st-new-text); }
+        .st-exist { background: var(--st-exist-bg); color: var(--st-exist-text); }
+        .st-trans { background: var(--st-trans-bg); color: var(--st-trans-text); }
+        .st-cancel { background: var(--st-cancel-bg); color: var(--st-cancel-text); border: 1px solid rgba(191,38,0,0.1); }
+
+        .action-btns { display: flex; gap: 5px; justify-content: flex-end; opacity: 0; transition: 0.2s; }
+        tr:hover .action-btns { opacity: 1; }
+
+        /* MODAL */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 3000; display: none; justify-content: center; align-items: center; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: white; width: 600px; border-radius: 12px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal h2 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 5px; }
+        .form-control { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: #FAFBFC; }
+        .form-row { display: flex; gap: 15px; }
+        .form-row .form-group { flex: 1; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .footer { text-align: center; margin-top: 50px; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+    <!-- LOADING -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <p style="margin-top: 15px; font-weight: 600;">Məlumatlar yüklənir...</p>
+    </div>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="container header-content">
+            <div class="brand">
+                <i class="fas fa-briefcase"></i>
+                Birbank | HR Analytics
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-primary" onclick="openModal()">
+                    <i class="fas fa-plus"></i> Yeni
+                </button>
+                <button class="btn btn-outline" onclick="fetchData()">
+                    <i class="fas fa-sync"></i> Yenilə
+                </button>
+                <button class="btn btn-dark" onclick="unlockGlobal()" id="globalLockBtn">
+                    <i class="fas fa-lock"></i> Analitika
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-text"><h3 id="stat-count-emp">0</h3><p>Aktiv Əməkdaş</p></div></div>
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-list-check"></i></div><div class="stat-text"><h3 id="stat-count-task">0</h3><p>Aktiv Tapşırıq</p></div></div>
+            <div class="stat-card"><div class="stat-icon"><i class="fas fa-exchange-alt"></i></div><div class="stat-text"><h3 id="stat-count-trans">0</h3><p>Transfer</p></div></div>
+            <div class="stat-card"><div class="stat-icon" style="color:#BF2600;bg:#FFEBE6"><i class="fas fa-ban"></i></div><div class="stat-text"><h3 id="stat-count-cancel">0</h3><p>Ləğv</p></div></div>
+        </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="container">
+        <div class="filters-container">
+            <div class="filter-group">
+                <label>Əməkdaş</label>
+                <select id="filterEmp" class="form-select" onchange="renderGrid()"><option value="all">Hamısı</option></select>
+            </div>
+            <div class="filter-group">
+                <label>Proses</label>
+                <select id="filterProc" class="form-select" onchange="renderGrid()"><option value="all">Hamısı</option></select>
+            </div>
+            <div class="filter-group" style="flex: 2;">
+                <label>Status (Çox Seçimli)</label>
+                <div class="status-wrapper">
+                    <label class="status-label"><input type="checkbox" value="Mövcud" checked onchange="renderGrid()"> Mövcud</label>
+                    <label class="status-label"><input type="checkbox" value="Yeni" checked onchange="renderGrid()"> Yeni</label>
+                    <label class="status-label"><input type="checkbox" value="Transfer" checked onchange="renderGrid()"> Transfer</label>
+                    <label class="status-label"><input type="checkbox" value="Ləğv" checked onchange="renderGrid()"> Ləğv</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="container grid-container" id="mainGrid"></div>
+
+    <!-- MODAL (DATALISTS USED HERE) -->
+    <div class="modal-overlay" id="taskModal">
+        <div class="modal">
+            <h2 id="modalTitle">Yeni Tapşırıq</h2>
+            <input type="hidden" id="taskId">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Proses (Seçin və ya Yazın)</label>
+                    <input list="dl_processes" id="inpProcess" class="form-control" placeholder="Məs: İşə qəbul">
+                    <datalist id="dl_processes"></datalist>
+                </div>
+                <div class="form-group">
+                    <label>Kateqoriya</label>
+                    <input list="dl_categories" id="inpCategory" class="form-control" placeholder="Məs: HRB">
+                    <datalist id="dl_categories"></datalist>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Tapşırıq Detalı</label>
+                <input type="text" id="inpTask" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label>Əlavə Məlumat / Description</label>
+                <input type="text" id="inpDesc" class="form-control" placeholder="Qısa açıqlama (Optional)">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>İcraçı (Əvvəl)</label>
+                    <input list="dl_owners" id="inpBefore" class="form-control" placeholder="Məs: Orxan">
+                    <datalist id="dl_owners"></datalist>
+                </div>
+                <div class="form-group">
+                    <label>İcraçı (Sonra)</label>
+                    <input list="dl_owners" id="inpAfter" class="form-control" placeholder="Məs: Aytən x">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tezlik / Baza</label>
+                    <input type="text" id="inpFreq" class="form-control" placeholder="Məs: Ayda 1 dəfə">
+                </div>
+                <div class="form-group">
+                    <label>İllik Saat (Cəm)</label>
+                    <input type="number" id="inpHours" class="form-control" placeholder="0">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+                    <input type="checkbox" id="inpCancelled" style="transform:scale(1.3)"> Ləğv Edilib (Status: Cancelled)
+                </label>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal()">Bağla</button>
+                <button class="btn btn-primary" onclick="saveTask()">Yadda saxla</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">© 2025 Əmək Münasibətləri Şöbəsi</div>
+
+    <script>
+        // ----------------------------------------------------------------------------------
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx3CdCimF7FCqUzpYZbXWjfjS58095ZA1DkCRGiBR-BV-w59aTYcPhE9_xYrJsNGK6v6A/exec'; // LINKI BURA QOYUN
+        // ----------------------------------------------------------------------------------
+
+        let rawData = [];
+
+        // 1. FETCH
+        async function fetchData() {
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                if(SCRIPT_URL.includes('YOUR_APP')) {
+                    alert("Script URL əlavə edin.");
+                    document.getElementById('loader').style.display = 'none';
+                    return;
+                }
+                const response = await fetch(`${SCRIPT_URL}?action=read`);
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    rawData = result.data.map(item => ({
+                        id: item.id,
+                        p: item.process,
+                        c: item.category,
+                        t: item.task,
+                        desc: item.description || "", // New field
+                        before: item.owner_before,
+                        after: item.owner_after,
+                        freq: item.frequency,
+                        h: parseFloat(item.hours) || 0,
+                        red: String(item.is_cancelled).toUpperCase() === 'TRUE'
+                    }));
+                    initApp();
+                } else { alert('Xəta: ' + result.message); }
+            } catch (error) {
+                console.error(error);
+                alert('Məlumatları çəkərkən xəta baş verdi.');
+            } finally { document.getElementById('loader').style.display = 'none'; }
+        }
+
+        // 2. SAVE
+        async function saveTask() {
+            const id = document.getElementById('taskId').value;
+            const payload = {
+                id: id,
+                process: document.getElementById('inpProcess').value,
+                category: document.getElementById('inpCategory').value,
+                task: document.getElementById('inpTask').value,
+                description: document.getElementById('inpDesc').value, // New field
+                owner_before: document.getElementById('inpBefore').value,
+                owner_after: document.getElementById('inpAfter').value,
+                frequency: document.getElementById('inpFreq').value,
+                hours: document.getElementById('inpHours').value,
+                is_cancelled: document.getElementById('inpCancelled').checked
+            };
+
+            const action = id ? 'update' : 'create';
+            document.getElementById('loader').style.display = 'flex';
+            closeModal();
+
+            try {
+                await fetch(SCRIPT_URL + `?action=${action}`, { method: 'POST', body: JSON.stringify(payload) });
+                await fetchData();
+            } catch (e) { console.error(e); setTimeout(fetchData, 1500); }
+        }
+
+        // 3. DELETE
+        async function deleteTask(id) {
+            if(!confirm("Silmək istədiyinizə əminsiniz?")) return;
+            document.getElementById('loader').style.display = 'flex';
+            try {
+                await fetch(SCRIPT_URL + `?action=delete`, { method: 'POST', body: JSON.stringify({ id: id }) });
+                await fetchData();
+            } catch (e) { setTimeout(fetchData, 1500); }
+        }
+
+        // 4. UI LOGIC
+        function initApp() {
+            populateControls();
+            renderGrid();
+        }
+
+        function populateControls() {
+            const emps = new Set();
+            const procs = new Set();
+            const cats = new Set();
+            
+            rawData.forEach(r => {
+                if(r.after) emps.add(r.after);
+                if(r.before) emps.add(r.before);
+                if(r.p) procs.add(r.p);
+                if(r.c) cats.add(r.c);
+            });
+
+            // Filters
+            const empSel = document.getElementById('filterEmp');
+            const procSel = document.getElementById('filterProc');
+            // Save state
+            const currEmp = empSel.value; const currProc = procSel.value;
+            
+            empSel.innerHTML = '<option value="all">Hamısı</option>';
+            procSel.innerHTML = '<option value="all">Hamısı</option>';
+
+            Array.from(emps).sort().forEach(e => empSel.add(new Option(e, e)));
+            Array.from(procs).sort().forEach(p => procSel.add(new Option(p, p)));
+
+            if(currEmp) empSel.value = currEmp;
+            if(currProc) procSel.value = currProc;
+
+            // Datalists (For Modal Auto-complete)
+            fillDatalist('dl_processes', procs);
+            fillDatalist('dl_categories', cats);
+            fillDatalist('dl_owners', emps);
+        }
+
+        function fillDatalist(id, set) {
+            const dl = document.getElementById(id);
+            dl.innerHTML = '';
+            Array.from(set).sort().forEach(val => {
+                const opt = document.createElement('option');
+                opt.value = val;
+                dl.appendChild(opt);
+            });
+        }
+
+        function renderGrid() {
+            const fEmp = document.getElementById('filterEmp').value;
+            const fProc = document.getElementById('filterProc').value;
+            const checks = document.querySelectorAll('.status-wrapper input:checked');
+            const activeStatuses = Array.from(checks).map(c => c.value);
+            const grid = document.getElementById('mainGrid');
+            grid.innerHTML = '';
+
+            let displayMap = {}; 
+            
+            rawData.forEach(row => {
+                if(row.red) addToMap(displayMap, row.before, row, "Ləğv", 0);
+                else if (row.before === row.after) addToMap(displayMap, row.after, row, "Mövcud", row.h);
+                else {
+                    let taskOut = {...row, t: `${row.t} (-> ${row.after})`};
+                    addToMap(displayMap, row.before, taskOut, "Transfer", 0);
+                    addToMap(displayMap, row.after, row, "Yeni", row.h);
+                }
+            });
+
+            // Sorting
+            const order = ["Elmira x", "Aida x", "Nərmin", "Zümrüd", "Orxan", "Ülvi", "Hüseyn", "Ağaəli", "Şöbə əməkdaşları", "Aytən x", "Gülşən", "Sveta x", "Fəridə"];
+            let keys = Object.keys(displayMap).sort((a,b) => {
+                let ia = order.indexOf(a), ib = order.indexOf(b);
+                if(ia===-1) ia=999; if(ib===-1) ib=999;
+                return ia - ib;
+            });
+
+            // Stats
+            let gEmpSet=new Set(), gTask=0, gTrans=0, gCanc=0;
+
+            keys.forEach(emp => {
+                if(!emp) return;
+                let tasks = displayMap[emp];
+
+                // Global Stats
+                tasks.forEach(t => {
+                    if(t.status === "Mövcud" || t.status === "Yeni") { 
+                        gTask++; 
+                        if(emp !== "Şöbə əməkdaşları") gEmpSet.add(emp);
+                    }
+                    if(t.status === "Transfer") gTrans++;
+                    if(t.status === "Ləğv") gCanc++;
+                });
+
+                // Apply Filters
+                if(fEmp !== 'all' && fEmp !== emp) return;
+                
+                let filteredTasks = tasks.filter(t => {
+                    if(fProc !== 'all' && t.data.p !== fProc) return false;
+                    if(!activeStatuses.includes(t.status)) return false;
+                    return true;
+                });
+
+                if(filteredTasks.length === 0) return;
+
+                // Card Hours
+                let sumH = 0;
+                filteredTasks.forEach(t => sumH += t.hours);
+                let daily = sumH / 240;
+
+                const card = document.createElement('div');
+                card.className = 'emp-card';
+                const isUnlocked = document.getElementById('globalLockBtn').classList.contains('unlocked');
+                const boxClass = isUnlocked ? 'analytics-box visible' : 'analytics-box';
+
+                let rows = '';
+                filteredTasks.forEach(t => {
+                    let cls = "";
+                    if(t.status === "Mövcud") cls="st-exist";
+                    if(t.status === "Yeni") cls="st-new";
+                    if(t.status === "Transfer") cls="st-trans";
+                    if(t.status === "Ləğv") cls="st-cancel";
+
+                    // Description HTML
+                    let descHtml = t.data.desc ? `<span class="task-desc">${t.data.desc}</span>` : '';
+
+                    rows += `
+                        <tr>
+                            <td class="col-process">${t.data.p}</td>
+                            <td class="col-cat">${t.data.c}</td>
+                            <td class="col-task">${t.data.t}${descHtml}</td>
+                            <td class="col-freq">${t.data.freq}</td>
+                            <td class="col-status"><span class="badge ${cls}">${t.status}</span></td>
+                            <td class="col-actions">
+                                <div class="action-btns">
+                                    <button class="btn btn-sm btn-outline" onclick='openModal(${JSON.stringify(t.data)})'><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteTask('${t.data.id}')"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="emp-header">
+                        <div class="emp-profile">
+                            <div class="avatar">${emp.charAt(0)}</div>
+                            <div class="emp-details"><h2>${emp}</h2><span>${filteredTasks.length} sətir</span></div>
+                        </div>
+                        <div class="${boxClass}">
+                            <div class="ab-item"><div>İllik Cəm (Saat)</div><div>${sumH.toFixed(1)}</div></div>
+                            <div class="ab-item"><div>Gündəlik Yük</div><div>${daily.toFixed(1)}</div></div>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead><tr><th>Proses</th><th>Kateqoriya</th><th>Tapşırıq</th><th>Tezlik</th><th style="text-align:center">Status</th><th></th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            // Update Stats UI
+            document.getElementById('stat-count-emp').innerText = gEmpSet.size;
+            document.getElementById('stat-count-task').innerText = gTask;
+            document.getElementById('stat-count-trans').innerText = gTrans;
+            document.getElementById('stat-count-cancel').innerText = gCanc;
+        }
+
+        function addToMap(map, owner, rowData, status, hours) {
+            if(!map[owner]) map[owner] = [];
+            map[owner].push({data: rowData, status: status, hours: hours});
+        }
+
+        function unlockGlobal() {
+            if(prompt("Parol:") === "2025") {
+                document.getElementById('globalLockBtn').classList.add('unlocked');
+                document.querySelectorAll('.analytics-box').forEach(b => b.classList.add('visible'));
+            } else alert("Yanlış parol!");
+        }
+
+        function openModal(data = null) {
+            const m = document.getElementById('taskModal');
+            m.classList.add('open');
+            if(data) {
+                document.getElementById('modalTitle').innerText = "Düzəliş Et";
+                document.getElementById('taskId').value = data.id;
+                document.getElementById('inpProcess').value = data.p;
+                document.getElementById('inpCategory').value = data.c;
+                document.getElementById('inpTask').value = data.t;
+                document.getElementById('inpDesc').value = data.desc; // Set desc
+                document.getElementById('inpBefore').value = data.before;
+                document.getElementById('inpAfter').value = data.after;
+                document.getElementById('inpFreq').value = data.freq;
+                document.getElementById('inpHours').value = data.h;
+                document.getElementById('inpCancelled').checked = data.red;
+            } else {
+                document.getElementById('modalTitle').innerText = "Yeni Tapşırıq";
+                document.getElementById('taskId').value = "";
+                document.querySelectorAll('input').forEach(i => { if(i.type!=='checkbox' && i.type!=='hidden') i.value=""; });
+                document.getElementById('inpCancelled').checked = false;
+            }
+        }
+
+        function closeModal() { document.getElementById('taskModal').classList.remove('open'); }
+
+        fetchData(); // Start
+    </script>
+</body>
+</html>
