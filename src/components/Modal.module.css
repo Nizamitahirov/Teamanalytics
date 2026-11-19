@@ -37,3 +37,6 @@
   gap: var(--sp-2);
   padding: 0 var(--sp-6) var(--sp-6);
 }
+.wide {
+  width: min(860px, 100%);
+}

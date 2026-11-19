@@ -107,3 +107,64 @@ describe('format (SPEC §7.12)', () => {
     expect(levelOf(0, 85)).toBe('idle');
   });
 });
+
+import { filterTasks, isMismatch } from '../../shared/taskFilter.js';
+import { readFileSync } from 'node:fs';
+import { normalizeEmployee } from '../../shared/model.js';
+
+describe('filterTasks (seed)', () => {
+  const raw = JSON.parse(readFileSync(new URL('../../data/seed.json', import.meta.url), 'utf8'));
+  const tasks = raw.tasks.map(normalizeTask);
+  const emps = raw.employees.map(normalizeEmployee);
+  it('çiplər', () => {
+    expect(filterTasks(tasks, emps, { quick: 'transfers' })).toHaveLength(121);
+    expect(filterTasks(tasks, emps, { quick: 'cancelled' })).toHaveLength(11);
+    expect(filterTasks(tasks, emps, { quick: 'mismatch' }).map((t: { id: string }) => t.id)).toContain('P-29');
+    const over = filterTasks(tasks, emps, { quick: 'over' }, new Set(['Ülkər']));
+    expect(over.length).toBeGreaterThan(0);
+    expect(over.every((t: { owner_after: string; owner_before: string }) => (t.owner_after || t.owner_before) === 'Ülkər')).toBe(
+      true,
+    );
+  });
+  it('axtarış ə/e, sütun filtrləri birlikdə', () => {
+    expect(filterTasks(tasks, emps, { q: 'kesisme' }).length).toBeGreaterThan(0);
+    expect(filterTasks(tasks, emps, { company: 'Pashapay' })).toHaveLength(75);
+    expect(
+      filterTasks(tasks, emps, { company: 'Pashapay', status: 'Ləğv' }).every(
+        (t: { company: string }) => t.company === 'Pashapay',
+      ),
+    ).toBe(true);
+  });
+  it('isMismatch', () => {
+    expect(isMismatch(t({ min_per_key: 120, annual_freq: 20, hours: 200 }))).toBe(true);
+    expect(isMismatch(t({ min_per_key: 120, annual_freq: 20, hours: 40 }))).toBe(false);
+    expect(isMismatch(t({ min_per_key: null, annual_freq: 20, hours: 40 }))).toBe(false);
+  });
+});
+
+describe('resolveVersions — idempotentlik', () => {
+  const cur = new Map<string, Doc | null>([
+    ['Tasks/B-1', { _id: 'B-1', id: 'B-1', is_cancelled: false, hours: 10, _v: 3 } as Doc],
+  ]);
+  it('təkrar göndərilən partiya (sənəd artıq həmin vəziyyətdə) → ziddiyyət yox, yazı yox', () => {
+    const op: Op = {
+      t: 'upsert',
+      table: 'Tasks',
+      row: { id: 'B-1', is_cancelled: false, updated_at: 'x' },
+      v: 2,
+      base: { is_cancelled: true },
+    };
+    const r = resolveVersions([op], cur);
+    expect(r.conflicts).toEqual([]);
+    expect(r.accepted).toEqual([]);
+    expect(r.versions['Tasks/B-1']).toBe(3);
+  });
+  it('silinmiş sənədin təkrar silinməsi → ziddiyyət yox', () => {
+    const del = new Map<string, Doc | null>([['Tasks/B-1', { _id: 'B-1', _deleted: true, _v: 4 } as Doc]]);
+    expect(resolveVersions([{ t: 'delete', table: 'Tasks', key: 'B-1', v: 3 }], del).conflicts).toEqual([]);
+  });
+  it('fərqli dəyər → yenə ziddiyyət', () => {
+    const op: Op = { t: 'upsert', table: 'Tasks', row: { id: 'B-1', hours: 5 }, v: 2, base: { hours: 7 } };
+    expect(resolveVersions([op], cur).conflicts).toHaveLength(1);
+  });
+});

@@ -25,6 +25,13 @@ import { dataStore, useData } from '../store';
 import { useSyncLoop } from '../store/useSyncLoop';
 import { ConflictDialog } from '../features/sync/ConflictDialog';
 import { SyncPill } from '../features/sync/SyncPill';
+import { Toaster } from '../components/Toaster';
+import { Modal } from '../components/Modal';
+import { Button } from '../components/Button';
+import { CommandPalette, SHORTCUTS } from '../features/palette/CommandPalette';
+import { useShortcuts } from '../features/palette/useShortcuts';
+import { EmployeeDialog } from '../features/employees/EmployeeDialog';
+import pal from '../features/palette/CommandPalette.module.css';
 import s from './Shell.module.css';
 
 const COLLAPSE_KEY = 'wfp.v2.sideCollapsed';
@@ -44,6 +51,12 @@ export function Shell({ me }: { me: MeResponse }) {
     await authLogout();
   }, [authLogout]);
   const { theme, cycle } = useTheme();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [newEmp, setNewEmp] = useState(false);
+  const openPalette = useCallback(() => setPaletteOpen(true), []);
+  const openHelp = useCallback(() => setHelpOpen(true), []);
+  useShortcuts({ openPalette, openHelp, blocked: paletteOpen || helpOpen });
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => storage.get(COLLAPSE_KEY) === '1');
   const [moreOpen, setMoreOpen] = useState(false);
@@ -148,9 +161,9 @@ export function Shell({ me }: { me: MeResponse }) {
             <button
               type="button"
               className={s.search}
-              aria-disabled="true"
-              title={soon}
-              aria-label={`${t('top.search')} — ${soon}`}
+              onClick={openPalette}
+              aria-label={`${t('top.search')} (Ctrl K)`}
+              aria-haspopup="dialog"
             >
               <Search size={16} aria-hidden="true" />
               <span>{t('top.search')}</span>
@@ -218,6 +231,34 @@ export function Shell({ me }: { me: MeResponse }) {
         </>
       )}
       <ConflictDialog />
+      <Toaster />
+      {paletteOpen && (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          onTheme={cycle}
+          onShortcuts={openHelp}
+          onNewEmployee={() => setNewEmp(true)}
+        />
+      )}
+      {newEmp && <EmployeeDialog name={null} onClose={() => setNewEmp(false)} />}
+      {helpOpen && (
+        <Modal
+          title={t('palette.shortcuts')}
+          onClose={() => setHelpOpen(false)}
+          footer={<Button onClick={() => setHelpOpen(false)}>{t('common.close')}</Button>}
+        >
+          <dl className={pal.keys}>
+            {SHORTCUTS.map(([k, label]) => (
+              <div key={k} style={{ display: 'contents' }}>
+                <dt>
+                  <kbd>{k}</kbd>
+                </dt>
+                <dd>{t(label)}</dd>
+              </div>
+            ))}
+          </dl>
+        </Modal>
+      )}
     </div>
   );
 }

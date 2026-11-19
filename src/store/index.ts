@@ -3,6 +3,7 @@ import { useStore } from 'zustand';
 import { api } from '../lib/api';
 import { createDataStore, type DataStoreState } from './dataStore';
 import { idbPersist, type Persist } from './persist';
+import { createActions } from './actions';
 
 // IndexedDB asinxron açılır — store dərhal yaradılsın deyə gecikdirilmiş adapter
 const idb = idbPersist();
@@ -20,3 +21,5 @@ export const dataStore = createDataStore({
 export function useData<T>(selector: (s: DataStoreState) => T): T {
   return useStore(dataStore, selector);
 }
+
+export const actions = createActions(dataStore);
