@@ -2,3 +2,6 @@ node_modules
 .vercel
 .env*
 dev/e2e-shots
+dist
+test-results
+playwright-report

@@ -1,0 +1,9 @@
+# v1 (dəyişməz) və generasiya olunan fayllar
+public/
+data/
+dist/
+package-lock.json
+*.md
+dev/e2e.py
+test-results/
+playwright-report/

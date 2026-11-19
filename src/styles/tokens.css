@@ -1,0 +1,130 @@
+/* Dizayn tokenləri (SPEC §12.1). v1 dili saxlanır: tünd göy + Birbank qırmızı→narıncı qradiyent.
+   Mövzu: <html data-theme="light|dark">; atribut yoxdursa sistem seçimi. */
+:root {
+  color-scheme: light;
+  /* sabit (hər iki rejimdə) */
+  --ink: #090a13;
+  --ink-2: #12141f;
+  --ink-3: #1c1f2e;
+  --ink-line: rgba(255, 255, 255, 0.08);
+  --grad: linear-gradient(120deg, #e30613 0%, #f23a1c 42%, #ff6b17 78%, #ff9524 100%);
+  --brand: #f2501e;
+  --focus: #ff6b17;
+
+  /* səthlər və mətn — açıq */
+  --bg: #f4f4f7;
+  --surface: #ffffff;
+  --surface-2: #f8f8fa;
+  --text: #11131c;
+  --text-2: #3d4152;
+  --muted: #696d80;
+  --border: #e6e6ec;
+  --hover: rgba(17, 19, 28, 0.05);
+  --topbar-bg: rgba(244, 244, 247, 0.85);
+
+  /* status (yalnız yük/vəziyyət, həmişə ikonla) */
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;
+
+  /* qrafik kateqoriyaları (validatordan keçib, SPEC §12.1) */
+  --cat-1: #2347a8;
+  --cat-2: #f2501e;
+  --cat-3: #12a39a;
+  --cat-4: #7b5cd6;
+  --cat-5: #c2378a;
+  --cat-6: #8a6a00;
+  --company-birbank: #e30613;
+
+  /* tipoqrafiya */
+  --font: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --fs-12: 0.75rem;
+  --fs-13: 0.8125rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-32: 2rem;
+  --fs-40: 2.5rem;
+
+  /* aralıq (4 px şkala) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-14: 56px;
+
+  /* radius və kölgə */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --shadow-1: 0 1px 2px rgba(17, 19, 28, 0.04), 0 4px 16px rgba(17, 19, 28, 0.05);
+  --shadow-2: 0 8px 28px rgba(17, 19, 28, 0.1);
+  --shadow-3: 0 30px 80px rgba(0, 0, 0, 0.35);
+  --shadow-brand: 0 8px 20px rgba(242, 58, 28, 0.35);
+
+  /* hərəkət */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur: 180ms;
+
+  /* ölçülər */
+  --side-w: 248px;
+  --side-w-collapsed: 72px;
+  --topbar-h: 64px;
+  --bottomnav-h: 64px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0c14;
+  --surface: #12141f;
+  --surface-2: #181b28;
+  --text: #edeef3;
+  --text-2: #b9bccb;
+  --muted: #8a8ea0;
+  --border: #262a3a;
+  --hover: rgba(255, 255, 255, 0.06);
+  --topbar-bg: rgba(11, 12, 20, 0.85);
+  --cat-1: #4a7de3;
+  --cat-2: #ec6430;
+  --cat-3: #1a9e92;
+  --cat-4: #8a73e3;
+  --cat-5: #cc4f94;
+  --cat-6: #a88312;
+  --company-birbank: #ff4d57;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #0b0c14;
+    --surface: #12141f;
+    --surface-2: #181b28;
+    --text: #edeef3;
+    --text-2: #b9bccb;
+    --muted: #8a8ea0;
+    --border: #262a3a;
+    --hover: rgba(255, 255, 255, 0.06);
+    --topbar-bg: rgba(11, 12, 20, 0.85);
+    --cat-1: #4a7de3;
+    --cat-2: #ec6430;
+    --cat-3: #1a9e92;
+    --cat-4: #8a73e3;
+    --cat-5: #cc4f94;
+    --cat-6: #a88312;
+    --company-birbank: #ff4d57;
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 0ms;
+  }
+}

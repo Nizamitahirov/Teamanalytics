@@ -1,0 +1,64 @@
+# SPEC §13.3 — hər PR və main push-da. (Lighthouse CI və vizual reqressiya — Mərhələ 4.)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Format
+        run: npm run format:check
+      - name: v1 sintaksisi
+        run: node --check public/app.js
+      - name: Unit + server + qızıl testlər
+        run: npm test
+      - name: Build (v2)
+        run: npm run build
+
+      - name: Playwright brauzeri
+        run: npx playwright install --with-deps chromium
+      - name: E2E v2 (mock server)
+        run: npm run e2e
+        env:
+          CI: '1'
+
+      - name: E2E v1 (dev/e2e.py — v1 klienti yeni TS serverə qarşı)
+        run: |
+          pip install openpyxl playwright==$(node -p "require('@playwright/test/package.json').version")
+          python -m playwright install chromium
+          npm run dev > dev-server.log 2>&1 &
+          npx --yes wait-on@8.0.3 http://localhost:8765/api/health
+          npm run e2e:v1
+        env:
+          E2E_OUT: dev/e2e-shots
+
+      - name: Ekran şəkilləri və hesabat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            dev/e2e-shots
+            playwright-report
+            test-results
+            dev-server.log
+          if-no-files-found: ignore
