@@ -32,14 +32,17 @@ shared/                 Həm server, həm klient
   schema.ts             Zod: Task, Employee, LogEntry, Settings, Role, Op (+ v, base), OpsBody, Conflict, OpsResponse
   model.ts              normalizeTask/Employee, curOwner, statusOf, diffOps (yalnız dəyişən sahələr + v/base)
   metrics.ts            SPEC §7 formulaları — TƏK MƏNBƏ (Panel və hesabatlar buradan)
+  search.ts             Axtarış normallaşdırması (ə/e, ı/i, ö/o, ü/u, ş/s, ç/c, ğ/g)
+  taskFilter.ts         Tapşırıq filtrləri və sürətli çiplər (saf funksiya)
   format.ts             Rəqəm formatı (minlik U+202F, onluq vergül) — Intl istifadə olunmur (ADR-002)
   i18n/az.ts en.ts      Mətnlər (tip-təhlükəsiz açarlar)
   version.ts            APP_VERSION (/api/health, UI)
 src/                    v2 React klienti (Vite, React 19, React Router, CSS Modules, Lucide)
   app/                  router, Shell (sol menyu / aşağı naviqasiya, üst panel), auth konteksti, nav
-  store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), persist (IndexedDB), useSyncLoop
-  features/             auth, dashboard (hero + KPI), sync (SyncPill, ConflictDialog), placeholder
-  components/           Button, IconButton, Modal, EmptyState, Skeleton, BrandMark
+  store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), actions (ötür/ləğv/düzəliş/birləşdir), persist (IndexedDB), useSyncLoop
+  features/             auth, dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), log, palette (Ctrl+K, qısayollar), sync, placeholder
+  components/           Button, IconButton, Modal, Drawer, Toaster, EmployeePicker (combobox), Badges, Form.module.css, EmptyState, Skeleton
+  hooks/                useFocusTrap, useMedia, useMetrics
   lib/                  api klienti, i18n, mövzu (açıq/tünd/sistem), storage
   styles/               tokens.css (SPEC §12.1), base.css, fonts.css (Inter latin + latin-ext)
 index.html vite.config.ts   v2 giriş nöqtəsi; publicDir = static/ (v1 public/ DEYİL)
@@ -163,6 +166,5 @@ Qadağalar:
 - ~~`applyOps` upsert-də tam sənədi əvəz edir~~ — **Mərhələ 1-də düzəldilib** (`updateMask`, SPEC §15.3; test: `tests/server/api.test.ts`).
 - Rollar yoxdur: hər istifadəçi hər şeyi edə, istifadəçi silə bilər.
 - Tarixi snapshot yoxdur → trend qrafikləri mümkün deyil.
-- v2-də brauzerdə iki istifadəçi ziddiyyəti e2e-si redaktə UI-ı ilə (Mərhələ 3) əlavə olunmalıdır; indi `tests/server/sync.test.ts`-dədir.
 - Data keyfiyyəti: ad dublikatları (Farida/Fəridə, Kamila/Kamilə), təkrar sətir (`B-1770271295121` = `B-44`), id-siz sətir (`P-x71`), `P-29`-da saat uyğunsuzluğu — ətraflı `docs/CONTEXT.md`.
 - Bütün bunlar `SPEC.md`-də həll olunur.

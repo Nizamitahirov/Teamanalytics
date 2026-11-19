@@ -1,7 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import s from './Modal.module.css';
-
-const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /**
  * Modal (SPEC §12.3): fokus tələsi, açılanda ilk düyməyə fokus, bağlananda əvvəlki elementə qayıdış.
@@ -12,45 +11,23 @@ export function Modal({
   children,
   footer,
   onClose,
+  wide,
 }: {
   title: string;
   children: ReactNode;
   footer: ReactNode;
   onClose?: () => void;
+  wide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const prev = document.activeElement as HTMLElement | null;
-    const el = ref.current;
-    el?.querySelector<HTMLElement>(`.${s.foot} button`)?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onClose) onClose();
-      if (e.key !== 'Tab' || !el) return;
-      const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)];
-      if (!items.length) return;
-      const first = items[0];
-      const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      prev?.focus?.();
-    };
-  }, [onClose]);
+  useFocusTrap(ref, onClose, `[data-autofocus], .${s.foot} button:last-child`);
   return (
     <div
       className={s.backdrop}
       onClick={onClose ? (e) => e.target === e.currentTarget && onClose() : undefined}
       role="presentation"
     >
-      <div ref={ref} className={s.modal} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div ref={ref} className={`${s.modal} ${wide ? s.wide : ''}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div className={s.head}>
           <h2 id="modal-title">{title}</h2>
         </div>

@@ -249,3 +249,31 @@ describe('offline növbə + IndexedDB keşi', () => {
     expect(task(store, 'B-12').task).not.toBe('x'.repeat(3000));
   });
 });
+
+describe('təkrar göndərmə (at-least-once)', () => {
+  it('cavab gəldi, amma keş köhnə qaldı → yenidən açılışda ziddiyyət yaranmır', async () => {
+    const persist = memoryPersist();
+    const { store, net } = await makeStore('Ecosystem', 'Ecosystem', persist);
+    net.offline = true;
+    store.getState().setOnline(false);
+    store.getState().commit('ləğv', (d) => void (d.tasks.find((x) => x.id === 'B-20')!.is_cancelled = true));
+    await sleep(80);
+    const stale = structuredClone(persist.value!); // növbədə ləğv partiyası var
+    expect(stale.queue).toHaveLength(1);
+    net.offline = false;
+    store.getState().setOnline(true);
+    await idle(store);
+    expect(doc('tasks/B-20').is_cancelled).toBe(true);
+    const v = doc('tasks/B-20')._v;
+    // Brauzer köhnə keşlə açılır və eyni partiyanı təkrar göndərir
+    persist.value = stale;
+    const c = await client(api.base);
+    const reopened = createDataStore({ request: c.request, persist, retryDelayMs: 0 });
+    await reopened.getState().hydrate();
+    await reopened.getState().flush();
+    await idle(reopened);
+    expect(reopened.getState().conflicts).toHaveLength(0);
+    expect(doc('tasks/B-20')._v).toBe(v); // təkrar yazılmayıb
+    expect(reopened.getState().data.tasks.find((t) => t.id === 'B-20')?._v).toBe(Number(v));
+  });
+});

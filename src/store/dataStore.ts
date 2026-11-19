@@ -96,6 +96,15 @@ export function createDataStore(deps: DataStoreDeps) {
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
   const store = createStore<DataStoreState>()((set, get) => {
+    const snapshot = () => {
+      const s = get();
+      return { version: CACHE_VERSION, user: s.user, lastTs: s.lastTs, data: s.data, queue: s.queue } as const;
+    };
+    const persistNow = () => {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = null;
+      void deps.persist.save(snapshot()).catch(() => undefined);
+    };
     const persistSoon = () => {
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
@@ -351,7 +360,8 @@ export function createDataStore(deps: DataStoreDeps) {
             }));
           }
           set((st) => ({ queue: st.queue.slice(1), sending: false }));
-          persistSoon();
+          // Göndərilmiş partiya keşdən DƏRHAL çıxarılsın (gecikmə olsa, səhifə bağlananda təkrar göndərilə bilər)
+          persistNow();
           if (get().queue.length) return get().flush();
           set({ status: 'idle', error: null, syncedAt: now() });
         } catch (e) {

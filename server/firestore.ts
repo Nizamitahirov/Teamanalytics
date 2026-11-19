@@ -14,6 +14,9 @@
 // sahələr yazılır. Firestore-da v1 klientinin bilmədiyi sahələr (v2 sahələri, konsolda əlavə olunanlar) qorunur.
 import { SETTINGS_KEYS, type Conflict, type Op } from '../shared/schema.js';
 
+// Ziddiyyət müqayisəsində nəzərə alınmayan texniki sahələr (shared/model.ts ilə eyni)
+const META_FIELDS = new Set(['updated_at', 'updated_by']);
+
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const apiRoot = () => process.env.FIRESTORE_API_BASE || 'https://firestore.googleapis.com/v1';
 const COLL = { Tasks: 'tasks', Employees: 'employees' } as const;
@@ -401,6 +404,18 @@ export function resolveVersions(
     const alive = cur && !cur._deleted;
     let ok = op.v === curV;
     if (!ok && op.t === 'upsert' && op.base && alive) ok = Object.entries(op.base).every(([f, b]) => norm(cur[f]) === norm(b));
+    // İdempotentlik: eyni partiya təkrar gəlibsə (məs. cavab gəldi, amma keş yenilənmədən səhifə bağlandı),
+    // sənəd artıq istənilən vəziyyətdədir → ziddiyyət deyil, yazmadan keç (jurnal qeydləri eyni id ilə zərərsizdir)
+    if (!ok) {
+      const applied =
+        op.t === 'delete'
+          ? !alive
+          : !!alive && Object.entries(op.row).every(([f, val]) => META_FIELDS.has(f) || norm(cur[f]) === norm(val));
+      if (applied) {
+        versions[id] = curV;
+        continue;
+      }
+    }
     if (!ok) {
       rejected.add(id);
       const theirs = alive

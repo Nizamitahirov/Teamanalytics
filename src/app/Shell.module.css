@@ -284,7 +284,10 @@
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--muted);
-  cursor: not-allowed;
+  cursor: pointer;
+}
+.search:hover {
+  border-color: var(--text-2);
 }
 .search kbd {
   margin-left: auto;
