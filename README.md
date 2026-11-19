@@ -9,6 +9,7 @@
 - **Tapşırıqlar**: axtarış, filtrlər, sıralama, toplu ötürmə / ləğv / bərpa / silmə.
 - **Jurnal**: hər əməliyyat — kim, nə vaxt, kimdən → kimə, şərh.
 - **Geri al** (son 30 əməliyyat, Ctrl+Z), **Excel export** (4 vərəq) və **import** (yenilə / əvəz et).
+- **İstifadəçilər**: Ayarlar bölməsindən əlavə etmək, parol dəyişmək, silmək. Jurnalda hər əməliyyatı kimin etdiyi görünür.
 
 ## Necə sürətli işləyir
 
@@ -21,26 +22,22 @@
 
 ## Quraşdırma
 
-Firebase layihəsi (`worforce-74ddf`) və Firestore bazası artıq yaradılıb. Firestore qaydalarını dəyişmək, Firebase Authentication-ı açmaq lazım **deyil**: brauzer bazaya birbaşa qoşulmur, bütün sorğular Vercel serverindən service account ilə gedir.
-
-### Vercel mühit dəyişənləri
-
-Vercel → layihə → **Settings → Environment Variables**. Hər birində **Production, Preview, Development** seçili olsun.
+Vercel-də **yalnız bir** mühit dəyişəni lazımdır:
 
 | Ad | Dəyər |
 |---|---|
-| `FIREBASE_SERVICE_ACCOUNT` | Firebase-dən yüklənən service account JSON faylının **bütün məzmunu** (`{` ilə başlayıb `}` ilə bitən) |
-| `AUTH_USERS` | İstifadəçilər: `ad:parol`, vergüllə ayrılır. Məs.: `nizami:Güclü-Parol-1,aysel:Başqa-Parol-2` |
-| `AUTH_SECRET` | Ən azı 32 simvolluq təsadüfi söz (sessiyanı imzalamaq üçün) |
-| `FIRESTORE_DATABASE` | *İstəyə bağlı.* Firestore bazasının ID-si `(default)` deyilsə |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase → Project settings → Service accounts → *Generate new private key* ilə yüklənən JSON faylının **bütün məzmunu** |
 
-Sonra **Deployments → son deploy → ⋯ → Redeploy**. Sayta daxil olun → "Baza boşdur" bannerində **İlkin məlumatları yüklə**.
+Vercel → layihə → **Settings → Environment Variables** → əlavə edin (Production, Preview, Development) → **Deployments → ⋯ → Redeploy**.
 
-> Service account JSON faylı layihəyə tam giriş verir: onu GitHub-a yükləməyin, mesajla göndərməyin. Fayl başqasına düşübsə, Firebase → Project settings → Service accounts → Google Cloud-da həmin açarı silib yenisini yaradın və Vercel-də dəyişəni yeniləyin.
+Qalanı avtomatikdir:
+- **Giriş**: ilk istifadəçi `Ecosystem` / `Ecosystem` ilk girişdə Firestore-un `users` kolleksiyasında yaranır. Yeni istifadəçi və parol dəyişikliyi: **Ayarlar → İstifadəçilər**. Parollar PBKDF2 heşi kimi saxlanır.
+- **İlkin məlumatlar**: baza boşdursa, ilk açılışda 341 tapşırıq və 23 əməkdaş yazılır.
+- **Sessiya açarı** service account açarından törədilir (istəsəniz `AUTH_SECRET` ilə öz açarınızı verə bilərsiniz).
+- Firestore qaydalarını dəyişmək və Firebase Authentication-ı açmaq lazım deyil: brauzer bazaya birbaşa qoşulmur.
+- `FIRESTORE_DATABASE` — yalnız bazanın ID-si `(default)` deyilsə.
 
-### İstifadəçi əlavə etmək / parolu dəyişmək
-
-`AUTH_USERS`-i dəyişin → **Redeploy**. Siyahıdan çıxarılan istifadəçinin sessiyası dərhal etibarsız olur.
+> Service account JSON faylı layihəyə tam giriş verir: onu GitHub-a yükləməyin, mesajla göndərməyin. Fayl başqasına düşübsə, Firebase-də yeni açar yaradın, köhnəsini Google Cloud → IAM → Service accounts → Keys bölməsində silin və Vercel-də dəyişəni yeniləyin.
 
 ---
 
@@ -48,10 +45,10 @@ Sonra **Deployments → son deploy → ⋯ → Redeploy**. Sayta daxil olun → 
 
 ```
 public/            Səhifələr (index.html, login.html, app.js, styles.css)
-api/               Server funksiyaları: login, logout, data, ops, seed, log
-lib/auth.js        Giriş və sessiya (HMAC imzalı cookie, 12 saat)
+api/               Server funksiyaları: login, logout, data, ops, log, users
+lib/auth.js        Giriş (Firestore users, PBKDF2) və sessiya (HMAC imzalı cookie, 12 saat)
 lib/firestore.js   Firestore REST API (service account), dəyişiklik izləmə
-middleware.js      Giriş etməmiş istifadəçini login səhifəsinə yönləndirir
+public/vendor/     Şrift, ikonlar və Chart.js — CDN-siz, sürətli
 data/seed.json     İlkin məlumatlar (Birbank 266 + Pashapay 75) — ictimai deyil
 ```
 

@@ -171,7 +171,6 @@ async function pull({ silent = false, full = false } = {}) {
   lastTs = d.ts || lastTs;
   saveLocal();
   if (changed) renderAll();
-  $('seedBanner').classList.toggle('hidden', state.tasks.length > 0);
   syncIdle();
   return changed;
 }
@@ -329,8 +328,10 @@ const ownerNames = () => [...new Set(state.tasks.map(curOwner).filter(Boolean))]
 
 function renderAll() {
   const cs = companies();
-  ['dCompany', 'eCompany', 'tCompany'].forEach(id => fillSelect($(id), cs));
-  ['dActivity', 'eActivity', 'tActivity'].forEach(id => fillSelect($(id), [ACT_ADMIN, ACT_PROJECT]));
+  fillSelect($('dCompany'), cs, 'Bütün şirkətlər');
+  fillSelect($('dActivity'), [ACT_ADMIN, ACT_PROJECT], 'Bütün fəaliyyət formaları');
+  ['eCompany', 'tCompany'].forEach(id => fillSelect($(id), cs));
+  ['eActivity', 'tActivity'].forEach(id => fillSelect($(id), [ACT_ADMIN, ACT_PROJECT]));
   fillSelect($('tProcess'), [...new Set(state.tasks.map(t => t.process).filter(Boolean))].sort(sortAz));
   fillSelect($('tOwner'), ownerNames());
   fillSelect($('tStatus'), STATUSES);
@@ -395,7 +396,7 @@ function renderDashboard() {
 
   // Load chart (people only, sorted)
   const lr = loads.filter(r => !r.isGroup).sort((a, b) => b.load - a.load);
-  $('loadChartBox').style.height = Math.max(240, lr.length * 26 + 50) + 'px';
+  $('loadChartBox').style.height = Math.max(240, lr.length * 24 + 70) + 'px';
   const refLine = {
     id: 'refLine',
     afterDatasetsDraw(c) {
@@ -405,15 +406,15 @@ function renderDashboard() {
       ctx.strokeStyle = '#090A13'; ctx.globalAlpha = .5; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
       ctx.setLineDash([]); ctx.globalAlpha = .8; ctx.fillStyle = '#090A13'; ctx.font = '600 11px Inter';
-      ctx.fillText('Norma 100%', x + 6, top + 10); ctx.restore();
+      ctx.textAlign = 'center'; ctx.fillText('Norma 100%', x, top - 8); ctx.restore();
     },
   };
   const statusHex = { good: '#0ca30c', warning: '#fab219', critical: '#d03b3b', idle: '#C1C7D0' };
   chart('loadChart', {
     type: 'bar',
-    data: { labels: lr.map(r => r.name), datasets: [{ data: lr.map(r => +(r.load * 100).toFixed(1)), backgroundColor: lr.map(r => statusHex[level(r.load).k]), borderRadius: 4, barThickness: 16 }] },
+    data: { labels: lr.map(r => r.name), datasets: [{ data: lr.map(r => +(r.load * 100).toFixed(1)), backgroundColor: lr.map(r => statusHex[level(r.load).k]), borderRadius: 4, barThickness: 14 }] },
     options: {
-      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
       scales: {
         x: { beginAtZero: true, suggestedMax: 120, grid: { color: gridColor }, border: { display: false }, ticks: { callback: v => v + '%' } },
         y: { grid: { display: false }, border: { display: false }, ticks: { color: '#11131C', font: { weight: '600' } } },
@@ -481,17 +482,16 @@ function renderDashboard() {
   // Capacity table
   const rows = loads.filter(r => r.hours > 0 || r.before > 0).sort((a, b) => b.load - a.load);
   $('capacityTable').innerHTML = `<table><thead><tr>
-      <th>Əməkdaş</th><th>Şirkət</th><th>Fəaliyyət forması</th><th class="r">Ştat</th><th class="r">Tapşırıq</th>
-      <th class="r">Əvvəl (saat)</th><th class="r">İndi (saat)</th><th class="r">Norma (saat)</th><th class="r">Boş tutum</th><th class="r">Yük</th><th>Vəziyyət</th></tr></thead><tbody>
+      <th>Əməkdaş</th><th class="hide-md">Fəaliyyət forması</th><th class="r">Ştat</th><th class="r">Tapşırıq</th>
+      <th class="r hide-sm">Əvvəl, saat</th><th class="r">İndi, saat</th><th class="r hide-sm">Boş tutum</th><th class="r">Yük</th><th>Vəziyyət</th></tr></thead><tbody>
     ${rows.map(r => { const l = r.isGroup ? null : level(r.load); return `<tr style="cursor:pointer" data-emp="${esc(r.name)}">
-      <td class="task-title">${esc(r.name)}${r.isGroup ? ' <span class="tag">qrup</span>' : ''}</td>
-      <td>${r.emp.company ? `<span class="tag co-${esc(r.emp.company)}">${esc(r.emp.company)}</span>` : ''}</td>
-      <td>${r.emp.activity === ACT_PROJECT ? `<span class="tag act-p">${ACT_PROJECT}</span>` : `<span class="tag">${esc(r.emp.activity || ACT_ADMIN)}</span>`}</td>
+      <td><span class="task-title">${esc(r.name)}</span><span class="task-sub">${esc(r.emp.company || '')}${r.isGroup ? ' · qrup' : ''}</span></td>
+      <td class="hide-md">${r.emp.activity === ACT_PROJECT ? `<span class="tag act-p">${ACT_PROJECT}</span>` : `<span class="tag">${esc(r.emp.activity || ACT_ADMIN)}</span>`}</td>
       <td class="r num">${r.isGroup ? '—' : fmt(r.fte, 2)}</td><td class="r num">${r.tasks}</td>
-      <td class="r num">${fmt(r.before, 1)}</td><td class="r num"><b>${fmt(r.hours, 1)}</b></td>
-      <td class="r num">${r.isGroup ? '—' : fmt(r.cap)}</td><td class="r num">${r.isGroup ? '—' : fmt(r.free, 0)}</td>
+      <td class="r num hide-sm">${fmt(r.before, 1)}</td><td class="r num"><b>${fmt(r.hours, 1)}</b></td>
+      <td class="r num hide-sm">${r.isGroup ? '—' : fmt(r.free, 0)}</td>
       <td class="r num"><b>${r.isGroup ? '—' : pct(r.load)}</b></td>
-      <td>${l ? `<span class="lvl lvl-${l.k}"><i class="fas ${l.icon}"></i>${l.txt}</span>` : '<span class="muted">Qrup — ştata daxil deyil</span>'}</td></tr>`; }).join('')}
+      <td>${l ? `<span class="lvl lvl-${l.k}"><i class="fas ${l.icon}"></i>${l.txt}</span>` : '<span class="muted">Qrup</span>'}</td></tr>`; }).join('')}
     </tbody></table>`;
   $('capacityTable').querySelectorAll('tr[data-emp]').forEach(tr => tr.onclick = () => openDrawer(tr.dataset.emp));
 }
@@ -554,15 +554,15 @@ function renderDrawer(name) {
       <button class="btn btn-outline btn-sm" id="dwAddTask"><i class="fas fa-plus"></i> Tapşırıq</button>
       <button class="btn btn-ghost icon-btn" id="dwClose"><i class="fas fa-xmark"></i></button>
     </div>`;
-  const rowsHtml = (arr, mode) => arr.length ? `<table><thead><tr><th style="width:28px"><input type="checkbox" class="chk" data-all="${mode}"></th><th>Proses / Tapşırıq</th><th>Şirkət</th><th>${mode === 'out' ? 'Kimə ötürülüb' : 'Haradan'}</th><th class="c">Status</th><th class="r">Saat/il</th><th></th></tr></thead><tbody>
+  const rowsHtml = (arr, mode) => arr.length ? `<table class="resp"><thead><tr><th class="c-chk"><input type="checkbox" class="chk" data-all="${mode}" aria-label="Hamısını seç"></th><th>Tapşırıq</th><th class="hide-sm">Şirkət</th><th class="hide-sm">${mode === 'out' ? 'Kimə ötürülüb' : 'Haradan'}</th><th class="c">Status</th><th class="r">Saat/il</th><th class="c-act"></th></tr></thead><tbody>
       ${arr.map(t => { const st = statusOf(t); return `<tr class="${t.is_cancelled ? 'is-cancelled' : ''}">
-        <td><input type="checkbox" class="chk" data-sel="${esc(t.id)}" ${selected.has(t.id) ? 'checked' : ''}></td>
-        <td><span class="task-title">${esc(t.task)}</span><span class="task-sub">${esc(t.process)} · ${esc(t.category)}</span></td>
-        <td><span class="tag co-${esc(t.company)}">${esc(t.company)}</span></td>
-        <td>${mode === 'out' ? esc(t.owner_after) : (t.owner_before && t.owner_before !== name ? esc(t.owner_before) : '<span class="muted">—</span>')}</td>
-        <td class="c"><span class="badge st-${st}">${st}</span></td>
-        <td class="r num">${fmt(t.hours, 1)}</td>
-        <td>${taskActions(t)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty" style="padding:20px">Yoxdur</div>';
+        <td class="c-chk"><input type="checkbox" class="chk" data-sel="${esc(t.id)}" ${selected.has(t.id) ? 'checked' : ''} aria-label="Seç"></td>
+        <td class="c-main"><span class="task-title">${esc(t.task)}</span><span class="task-sub">${esc(t.process)} · ${esc(t.category)}</span></td>
+        <td class="hide-sm"><span class="tag co-${esc(t.company)}">${esc(t.company)}</span></td>
+        <td class="hide-sm">${mode === 'out' ? esc(t.owner_after) : (t.owner_before && t.owner_before !== name ? esc(t.owner_before) : '<span class="muted">—</span>')}</td>
+        <td class="c c-status"><span class="badge st-${st}">${st}</span></td>
+        <td class="r num c-hours">${fmt(t.hours, 1)}<span class="unit-sm"> saat</span></td>
+        <td class="c-act">${taskActions(t)}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty" style="padding:20px">Yoxdur</div>';
   $('drawerBody').innerHTML = `
     <h3 style="margin:0 0 8px">Cari tapşırıqlar <span class="muted" style="font-weight:500">(${current.length})</span></h3>
     <div class="table-wrap">${rowsHtml(current, 'cur')}</div>
@@ -633,22 +633,21 @@ function renderTasks() {
   const sumH = list.filter(t => !t.is_cancelled).reduce((s, t) => s + (Number(t.hours) || 0), 0);
   $('taskCount').textContent = `${list.length} tapşırıq göstərilir · aktiv olanların cəmi ${fmt(sumH)} saat (${fmt(sumH / state.settings.norm, 2)} FTE)`;
   const th = (k, label, cls = '') => `<th class="sortable ${cls}" data-sort="${k}">${label}${taskSort.key === k ? (dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
-  $('taskTable').innerHTML = list.length ? `<table><thead><tr>
-      <th style="width:28px"><input type="checkbox" class="chk" data-all="tasks"></th>
-      ${th('company', 'Şirkət')}${th('process', 'Proses / Tapşırıq')}${th('category', 'Kateqoriya')}${th('owner', 'Cari icraçı')}${th('owner_before', 'İlkin icraçı')}
-      ${th('status', 'Status', 'c')}${th('annual_freq', 'Təkrar/il', 'r')}${th('hours', 'Saat/il', 'r')}${th('after_opt', 'Opt. sonra', 'r')}<th></th></tr></thead><tbody>
+  $('taskTable').innerHTML = list.length ? `<table class="resp"><thead><tr>
+      <th class="c-chk"><input type="checkbox" class="chk" data-all="tasks" aria-label="Hamısını seç"></th>
+      ${th('task', 'Tapşırıq')}${th('company', 'Şirkət', 'hide-sm')}${th('owner', 'Cari icraçı')}${th('owner_before', 'İlkin icraçı', 'hide-md')}
+      ${th('status', 'Status', 'c')}${th('annual_freq', 'Təkrar/il', 'r hide-md')}${th('hours', 'Saat/il', 'r')}${th('after_opt', 'Opt. sonra', 'r hide-md')}<th class="c-act"></th></tr></thead><tbody>
     ${list.map(t => { const st = statusOf(t), o = curOwner(t); return `<tr class="${t.is_cancelled ? 'is-cancelled' : ''}">
-      <td><input type="checkbox" class="chk" data-sel="${esc(t.id)}" ${selected.has(t.id) ? 'checked' : ''}></td>
-      <td><span class="tag co-${esc(t.company)}">${esc(t.company)}</span></td>
-      <td style="min-width:260px"><span class="task-title">${esc(t.task)}</span><span class="task-sub">${esc(t.process)}${t.description ? ' · ' + esc(t.description) : ''}</span></td>
-      <td>${esc(t.category)}</td>
-      <td><a href="#" data-emp="${esc(o)}" style="color:inherit;font-weight:600">${esc(o)}</a><span class="task-sub">${esc(activityOf(o))}</span></td>
-      <td>${esc(t.owner_before)}</td>
-      <td class="c"><span class="badge st-${st}">${st}</span></td>
-      <td class="r num">${t.annual_freq != null ? fmt(t.annual_freq) + ' ' + esc(t.unit || '') : ''}</td>
-      <td class="r num"><b>${fmt(t.hours, 1)}</b></td>
-      <td class="r num">${t.after_opt != null ? fmt(t.after_opt, 1) : ''}</td>
-      <td>${taskActions(t)}</td></tr>`; }).join('')}
+      <td class="c-chk"><input type="checkbox" class="chk" data-sel="${esc(t.id)}" ${selected.has(t.id) ? 'checked' : ''} aria-label="Seç"></td>
+      <td class="c-main"><span class="task-title">${esc(t.task)}</span><span class="task-sub">${esc(t.process)} · ${esc(t.category)}${t.description ? ' · ' + esc(t.description) : ''}</span></td>
+      <td class="hide-sm"><span class="tag co-${esc(t.company)}">${esc(t.company)}</span></td>
+      <td class="c-owner"><a href="#" class="link" data-emp="${esc(o)}">${esc(o)}</a><span class="task-sub">${o !== t.owner_before && t.owner_before ? `əvvəl: ${esc(t.owner_before)} · ` : ''}${esc(activityOf(o))}</span></td>
+      <td class="hide-md">${esc(t.owner_before)}</td>
+      <td class="c c-status"><span class="badge st-${st}">${st}</span></td>
+      <td class="r num hide-md">${t.annual_freq != null ? fmt(t.annual_freq) + ' ' + esc(t.unit || '') : ''}</td>
+      <td class="r num c-hours"><b>${fmt(t.hours, 1)}</b><span class="unit-sm"> saat</span>${t.after_opt != null ? `<span class="task-sub show-md">opt: ${fmt(t.after_opt, 1)}</span>` : ''}</td>
+      <td class="r num hide-md">${t.after_opt != null ? fmt(t.after_opt, 1) : ''}</td>
+      <td class="c-act">${taskActions(t)}</td></tr>`; }).join('')}
     </tbody></table>` : '<div class="empty">Filtrə uyğun tapşırıq yoxdur.</div>';
   $('taskTable').querySelectorAll('[data-sort]').forEach(h => h.onclick = () => { taskSort = { key: h.dataset.sort, dir: taskSort.key === h.dataset.sort ? -taskSort.dir : 1 }; renderTasks(); });
   $('taskTable').querySelectorAll('a[data-emp]').forEach(a => a.onclick = (e) => { e.preventDefault(); openDrawer(a.dataset.emp); });
@@ -660,7 +659,7 @@ function renderTasks() {
 function renderLog() {
   const a = $('lAction').value, u = $('lUser').value, q = $('lSearch').value.trim().toLowerCase();
   const list = state.log.filter(l => (a === 'all' || l.action === a) && (u === 'all' || l.user === u) && (!q || `${l.task_label} ${l.from} ${l.to} ${l.comment} ${l.user}`.toLowerCase().includes(q))).slice().reverse();
-  const icon = { 'Ötürmə': 'fa-right-left', 'Ləğv': 'fa-ban', 'Bərpa': 'fa-rotate', 'Silinmə': 'fa-trash', 'Yeni': 'fa-plus', 'Düzəliş': 'fa-pen', 'Import': 'fa-file-import', 'Əməkdaş': 'fa-user-pen', 'Geri alma': 'fa-rotate-left', 'Ayarlar': 'fa-sliders' };
+  const icon = { 'Ötürmə': 'fa-right-left', 'Ləğv': 'fa-ban', 'Bərpa': 'fa-rotate', 'Silinmə': 'fa-trash', 'Yeni': 'fa-plus', 'Düzəliş': 'fa-pen', 'Import': 'fa-file-import', 'Əməkdaş': 'fa-user-pen', 'Geri alma': 'fa-rotate-left', 'Ayarlar': 'fa-sliders', 'İstifadəçi': 'fa-user-shield' };
   const when = (ts) => { const d = new Date(ts); return isNaN(d) ? esc(ts) : esc(d.toLocaleString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })); };
   $('logList').innerHTML = list.length ? list.slice(0, 500).map(l => `<div class="log-item">
       <div class="muted num">${when(l.ts)}</div>
@@ -672,7 +671,38 @@ function renderLog() {
 }
 
 /* ---------------- render: settings ---------------- */
+async function renderUsers() {
+  try {
+    const { users, me: cur } = await api('/api/users');
+    $('userList').innerHTML = `<table><thead><tr><th>İstifadəçi</th><th>Kim əlavə edib</th><th></th></tr></thead><tbody>
+      ${users.sort((a, b) => sortAz(a.name, b.name)).map(u => `<tr><td class="task-title">${esc(u.name)}${u.name === cur ? ' <span class="tag">siz</span>' : ''}</td><td class="muted">${esc(u.created_by || '—')}</td>
+        <td><div class="row-actions"><button class="btn btn-outline btn-sm" data-pw="${esc(u.name)}"><i class="fas fa-key"></i> Parol</button>
+        ${u.name !== cur ? `<button class="btn btn-danger btn-sm icon-btn" title="Sil" data-rm="${esc(u.name)}"><i class="fas fa-trash"></i></button>` : ''}</div></td></tr>`).join('')}</tbody></table>`;
+    $('userList').querySelectorAll('[data-pw]').forEach(b => b.onclick = () => openUserModal(b.dataset.pw));
+    $('userList').querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => {
+      if (!confirm(`${b.dataset.rm} silinsin? O, sistemə daxil ola bilməyəcək.`)) return;
+      try { await api('/api/users', { method: 'POST', body: JSON.stringify({ action: 'remove', name: b.dataset.rm }) }); toast(`${b.dataset.rm} silindi.`); renderUsers(); }
+      catch (e) { toast(e.message); }
+    });
+  } catch (e) { $('userList').innerHTML = `<div class="hint">${esc(e.message)}</div>`; }
+}
+function openUserModal(name) {
+  const isNew = !name;
+  openModal(isNew ? 'Yeni istifadəçi' : `Parolu dəyiş: ${name}`, `
+    <div class="form-grid">
+      ${isNew ? '<div class="field full"><label>İstifadəçi adı</label><input class="input" id="usName" autocomplete="off" autocapitalize="none"></div>' : ''}
+      <div class="field full"><label>Yeni parol</label><input class="input" id="usPass" type="password" autocomplete="new-password"><span class="hint">Ən azı 6 simvol. Böyük və kiçik hərf fərqlidir.</span></div>
+    </div>`,
+  [{ label: 'Bağla' }, { label: '<i class="fas fa-check"></i> Yadda saxla', cls: 'btn-primary', fn: async () => {
+    const n = isNew ? $('usName').value.trim() : name, p = $('usPass').value;
+    if (!n) return toast('Ad yazın.');
+    if (p.length < 6) return toast('Parol ən azı 6 simvol olmalıdır.');
+    try { await api('/api/users', { method: 'POST', body: JSON.stringify({ action: isNew ? 'add' : 'password', name: n, password: p }) }); closeModal(); toast(isNew ? `${n} əlavə edildi.` : 'Parol dəyişdirildi.'); renderUsers(); }
+    catch (e) { toast(e.message); }
+  } }]);
+}
 function renderSettings() {
+  if (!renderUsers.loaded) { renderUsers.loaded = true; renderUsers(); }
   $('sNorm').value = state.settings.norm; $('sWarn').value = state.settings.warn;
   $('dataInfo').innerHTML = `Bazada <b>${state.tasks.length}</b> tapşırıq, <b>${state.employees.length}</b> əməkdaş, <b>${state.log.length}</b> son jurnal qeydi yüklənib.`;
 }
@@ -846,6 +876,19 @@ function openEmployeeModal(name) {
 }
 
 /* ---------------- Excel ---------------- */
+// Excel kitabxanası yalnız lazım olanda yüklənir — səhifə daha tez açılır
+let xlsxPromise = null;
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve();
+  if (!xlsxPromise) xlsxPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    sc.onload = resolve;
+    sc.onerror = () => { xlsxPromise = null; reject(new Error('Excel kitabxanası yüklənmədi — internet bağlantısını yoxlayın')); };
+    document.head.appendChild(sc);
+  });
+  return xlsxPromise;
+}
 const TASK_COLS = [
   ['id', 'id'], ['company', 'Şirkət'], ['activity', 'Fəaliyyət forması'], ['process', 'Proses'], ['category', 'Kateqoriya'], ['task', 'Tapşırıq'],
   ['owner_before', 'İlkin icraçı'], ['owner_after', 'Yeni icraçı'], ['current', 'Cari icraçı'], ['status', 'Status'], ['is_cancelled', 'Ləğv edilib'],
@@ -868,6 +911,7 @@ const ALIASES = {
 const normH = (h) => String(h || '').replace(/İ/g, 'i').toLowerCase().normalize('NFC').replace(/\u0307/g, '').replace(/\s+/g, ' ').trim();
 
 async function exportExcel() {
+  await loadXLSX();
   await pull({ silent: true }).catch(() => {});
   const wb = XLSX.utils.book_new();
   const tasks = state.tasks.map(t => {
@@ -890,7 +934,8 @@ async function exportExcel() {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fullLog.map(l => ({ 'Tarix': l.ts, 'İstifadəçi': l.user || '', 'Əməliyyat': l.action, 'Tapşırıq': l.task_label, 'id': l.task_id, 'Kimdən': l.from, 'Kimə': l.to, 'Şərh': l.comment }))), 'Jurnal');
   XLSX.writeFile(wb, `workforce-planning-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
-function exportTemplate() {
+async function exportTemplate() {
+  await loadXLSX();
   const wb = XLSX.utils.book_new();
   const cols = TASK_COLS.filter(([k]) => !['activity', 'current', 'status', 'updated_at', 'updated_by'].includes(k)).map(c => c[1]);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cols]), 'Tapşırıqlar');
@@ -920,6 +965,7 @@ function parseRows(rows) {
 async function handleImport(file) {
   // Ən son vəziyyətlə müqayisə etmək üçün əvvəlcə bazadan yenilə
   await pull({ silent: true }).catch(() => {});
+  await loadXLSX();
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array' });
   const tName = wb.SheetNames.find(n => /tap[şs]ır/i.test(n)) || wb.SheetNames[0];
@@ -962,6 +1008,7 @@ function bind() {
     $('tabs').querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
     if ($('loading').classList.contains('hidden')) document.querySelectorAll('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + t.dataset.view));
     $('pageTitle').textContent = t.dataset.title;
+    if (t.dataset.view === 'settings') renderUsers.loaded = false;
     renderAll(); window.scrollTo(0, 0);
   });
   ['dCompany', 'dActivity', 'dOpt'].forEach(id => $(id).onchange = renderDashboard);
@@ -972,8 +1019,8 @@ function bind() {
   $('addTaskBtn').onclick = () => openTaskModal(null);
   $('addEmpBtn').onclick = () => openEmployeeModal(null);
   $('undoBtn').onclick = undo;
-  $('exportBtn').onclick = exportExcel;
-  $('templateBtn').onclick = exportTemplate;
+  $('exportBtn').onclick = () => exportExcel().catch(e => toast(e.message));
+  $('templateBtn').onclick = () => exportTemplate().catch(e => toast(e.message));
   $('importBtn').onclick = () => $('importFile').click();
   $('importFile').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) handleImport(f).catch(err => { console.error(err); toast('Fayl oxunmadı: ' + err.message); }); };
   $('drawerOverlay').onclick = closeDrawer;
@@ -997,12 +1044,7 @@ function bind() {
     commit('Norma yeniləndi', () => { state.settings.norm = n; state.settings.warn = warn; }, [{ action: 'Ayarlar', task_label: `Norma: ${n} saat, yüksək yük həddi: ${warn}%` }]);
   };
   $('refreshBtn').onclick = () => { pull({ full: true }).then(() => toast('Bazadan yeniləndi.')).catch(e => { setSync('err', 'Xəta'); toast(e.message); }); };
-  $('seedBtn').onclick = async () => {
-    $('seedBtn').disabled = true;
-    try { await api('/api/seed', { method: 'POST' }); await pull({ full: true }); toast('İlkin məlumatlar bazaya yazıldı.'); }
-    catch (e) { toast(e.message); }
-    $('seedBtn').disabled = false;
-  };
+  $('addUserBtn').onclick = () => openUserModal(null);
   const logout = async () => { try { await api('/api/logout', { method: 'POST' }); } catch (e) {} localStorage.removeItem(CACHE_KEY); location.href = '/login.html'; };
   $('logoutBtn').onclick = logout; $('logoutBtn2').onclick = logout;
   // Başqalarının dəyişikliklərini avtomatik gətir
@@ -1019,6 +1061,7 @@ async function init() {
   if (cache) { me = cache.me; lastTs = cache.lastTs || null; state = cache.state; state.settings = { ...DEFAULT_SETTINGS, ...state.settings }; showApp(); renderAll(); }
   try { await pull({ silent: !!cache }); showApp(); }
   catch (e) {
+    if (/Sessiya/.test(e.message)) return;
     console.error(e); setSync('err', 'Bağlantı xətası');
     if (!cache) $('loading').innerHTML = `<div class="empty"><b>Bazaya qoşulmaq alınmadı</b><br>${esc(e.message)}</div>`;
     else toast('Bazaya qoşulmaq alınmadı, son yüklənmiş nüsxə göstərilir: ' + e.message);
