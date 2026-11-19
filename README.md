@@ -1,6 +1,6 @@
 # Workforce Planning — Əmək Münasibətləri
 
-Şöbənin proseslərini, tapşırıqlarını və iş yükünü idarə etmək üçün veb platforma. Vercel-də işləyir, məlumatlar Google Sheet-də saxlanır, giriş ad və parolla olur.
+Şöbənin proseslərini, tapşırıqlarını və iş yükünü idarə etmək üçün veb platforma. Vercel-də işləyir, məlumatlar Firebase Firestore-da saxlanır, giriş ad və parolla olur.
 
 ## İmkanlar
 
@@ -9,51 +9,35 @@
 - **Tapşırıqlar**: axtarış, filtrlər, sıralama, toplu ötürmə / ləğv / bərpa / silmə.
 - **Jurnal**: hər əməliyyat — kim, nə vaxt, kimdən → kimə, şərh.
 - **Geri al** (son 30 əməliyyat, Ctrl+Z), **Excel export** (4 vərəq) və **import** (yenilə / əvəz et).
+- **İstifadəçilər**: Ayarlar bölməsindən əlavə etmək, parol dəyişmək, silmək. Jurnalda hər əməliyyatı kimin etdiyi görünür.
 
 ## Necə sürətli işləyir
 
-- Dəyişiklik ekranda **dərhal** görünür. Sheet-ə arxa planda yazılır. Yan paneldə "Saxlanır… / Sinxron" göstərilir.
-- Server Google Sheets API ilə birbaşa işləyir (Apps Script yoxdur). Hər dəyişiklik bir sorğu ilə gedir və yalnız dəyişən sətirlərə yazılır, ona görə başqalarının dəyişiklikləri üzərinə yazılmır.
-- Başqalarının dəyişiklikləri hər 20 saniyədə avtomatik gəlir. ⟳ düyməsi dərhal yeniləyir.
-- Sheet-də birbaşa düzəliş etmək olar: başlıq sətrinə toxunmayın. Öz əlavə sütunlarınız saxlanılır.
+- Dəyişiklik ekranda **dərhal** görünür, bazaya arxa planda yazılır (yan paneldə "Saxlanır… / Sinxron").
+- Hər 10 saniyədə yalnız **bir kiçik sorğu** gedir: "son dəyişiklikdən sonra nə dəyişib?". Dəyişiklik yoxdursa, heç nə yüklənmir. Varsa, yalnız dəyişən tapşırıqlar gəlir.
+- Brauzer son nüsxəni yadda saxlayır: səhifə dərhal açılır, sonra yalnız fərq yüklənir.
+- Firestore-un pulsuz limiti (gündə 50 000 oxuma, 20 000 yazma) bu həcm üçün kifayətdir.
 
 ---
 
-## Quraşdırma (bir dəfəlik, ~20 dəqiqə)
+## Quraşdırma
 
-### 1. Google Sheet və service account
-
-1. Yeni **boş Google Sheet** yaradın (məs. "Workforce Planning DB"). Ünvandakı ID-ni kopyalayın:
-   `https://docs.google.com/spreadsheets/d/`**`BU_HİSSƏ`**`/edit` → bu **SHEET_ID**-dir.
-2. [console.cloud.google.com](https://console.cloud.google.com) → yeni layihə yaradın (məs. "workforce-planning").
-3. **APIs & Services → Library → "Google Sheets API" → Enable**.
-4. **APIs & Services → Credentials → Create credentials → Service account**. Ad verin, rol seçmək lazım deyil → **Done**.
-5. Yaranan service account-a klikləyin → **Keys → Add key → Create new key → JSON**. Fayl yüklənəcək. Onu heç kimə göndərməyin və repo-ya qoymayın.
-6. JSON faylda iki dəyər lazımdır: `client_email` və `private_key`.
-7. Google Sheet-də **Share** düyməsini basın → `client_email`-i yazın → **Editor** → **Send**.
-
-> Şirkətinizin Google Workspace-i xarici service account ilə paylaşmağa icazə vermirsə, bu addımda xəta çıxacaq. Onda IT-dən icazə istəyin və ya Sheet-i şəxsi Google hesabında yaradın.
-
-### 2. Vercel
-
-1. [vercel.com](https://vercel.com) → **Add New → Project** → GitHub-dan **Teamanalytics** repo-nu seçin → **Import**.
-2. *Framework Preset*: **Other**. Qalan ayarlara toxunmayın.
-3. **Environment Variables** bölməsinə bunları əlavə edin:
+Vercel-də **yalnız bir** mühit dəyişəni lazımdır:
 
 | Ad | Dəyər |
 |---|---|
-| `SHEET_ID` | 1-ci addımdakı Sheet ID |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | JSON-dakı `client_email` |
-| `GOOGLE_PRIVATE_KEY` | JSON-dakı `private_key` — `-----BEGIN PRIVATE KEY-----` ilə başlayan bütün mətn, dırnaqsız |
-| `AUTH_USERS` | İstifadəçilər: `ad:parol`, vergüllə ayrılır. Məs.: `nizami:Güclü-Parol-1,aysel:Başqa-Parol-2` |
-| `AUTH_SECRET` | Ən azı 32 simvolluq təsadüfi söz (sessiyanı imzalamaq üçün). Parol menecerinin generatoru ilə yaradın |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase → Project settings → Service accounts → *Generate new private key* ilə yüklənən JSON faylının **bütün məzmunu** |
 
-4. **Deploy**. 1 dəqiqədən sonra sayt `https://<layihə>.vercel.app` ünvanında açılır.
-5. Sayta daxil olun → "Google Sheet boşdur" bannerində **İlkin məlumatları yüklə**. 341 tapşırıq və 23 əməkdaş Sheet-ə yazılır. Vərəqlər (Tasks, Employees, Log, Settings) avtomatik yaradılır.
+Vercel → layihə → **Settings → Environment Variables** → əlavə edin (Production, Preview, Development) → **Deployments → ⋯ → Redeploy**.
 
-### İstifadəçi əlavə etmək / parolu dəyişmək
+Qalanı avtomatikdir:
+- **Giriş**: ilk istifadəçi `Ecosystem` / `Ecosystem` ilk girişdə Firestore-un `users` kolleksiyasında yaranır. Yeni istifadəçi və parol dəyişikliyi: **Ayarlar → İstifadəçilər**. Parollar PBKDF2 heşi kimi saxlanır.
+- **İlkin məlumatlar**: baza boşdursa, ilk açılışda 341 tapşırıq və 23 əməkdaş yazılır.
+- **Sessiya açarı** service account açarından törədilir (istəsəniz `AUTH_SECRET` ilə öz açarınızı verə bilərsiniz).
+- Firestore qaydalarını dəyişmək və Firebase Authentication-ı açmaq lazım deyil: brauzer bazaya birbaşa qoşulmur.
+- `FIRESTORE_DATABASE` — yalnız bazanın ID-si `(default)` deyilsə.
 
-Vercel → layihə → **Settings → Environment Variables** → `AUTH_USERS`-i dəyişin → **Deployments → son deploy → Redeploy**. Siyahıdan çıxarılan istifadəçinin sessiyası dərhal etibarsız olur.
+> Service account JSON faylı layihəyə tam giriş verir: onu GitHub-a yükləməyin, mesajla göndərməyin. Fayl başqasına düşübsə, Firebase-də yeni açar yaradın, köhnəsini Google Cloud → IAM → Service accounts → Keys bölməsində silin və Vercel-də dəyişəni yeniləyin.
 
 ---
 
@@ -61,16 +45,16 @@ Vercel → layihə → **Settings → Environment Variables** → `AUTH_USERS`-i
 
 ```
 public/            Səhifələr (index.html, login.html, app.js, styles.css)
-api/               Server funksiyaları: login, logout, data, ops, seed
-lib/auth.js        Giriş və sessiya (HMAC imzalı cookie, 12 saat)
-lib/sheets.js      Google Sheets API (service account)
-middleware.js      Giriş etməmiş istifadəçini login səhifəsinə yönləndirir
+api/               Server funksiyaları: login, logout, data, ops, log, users
+lib/auth.js        Giriş (Firestore users, PBKDF2) və sessiya (HMAC imzalı cookie, 12 saat)
+lib/firestore.js   Firestore REST API (service account), dəyişiklik izləmə
+public/vendor/     Şrift, ikonlar və Chart.js — CDN-siz, sürətli
 data/seed.json     İlkin məlumatlar (Birbank 266 + Pashapay 75) — ictimai deyil
 ```
 
 ## Hesablama qaydaları
 
-- **Cari icraçı** = "owner_after", boşdursa "owner_before".
+- **Cari icraçı** = yeni icraçı, boşdursa ilkin icraçı.
 - **Status**: Ləğv · Transfer (ilkin və yeni icraçı fərqlidir) · Yeni (ilkin icraçı yoxdur) · Mövcud.
 - **Yük** = aktiv tapşırıqların illik saatı ÷ (norma × ştat). Ləğv edilmiş işlər daxil deyil.
 - **Lazım olan ştat** = aktiv illik saat ÷ norma. **Mövcud ştat** = tapşırığı olan fərdi əməkdaşların ştatlarının cəmi.

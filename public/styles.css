@@ -268,3 +268,62 @@ code { background: #F0F0F4; padding: 1px 6px; border-radius: 5px; font-size: .82
 }
 .mobile-only { display: none !important; }
 @media (max-width: 900px) { .mobile-only { display: inline-flex !important; } }
+
+/* ===== Cədvəllər: əməliyyat sütunu həmişə görünür, ekran daraldıqca sütunlar azalır ===== */
+th.c-chk, td.c-chk { width: 36px; }
+td.c-main { min-width: 240px; }
+th.c-act, td.c-act { position: sticky; right: 0; background: var(--surface); width: 1%; box-shadow: -8px 0 8px -8px rgba(17,19,28,.12); }
+th.c-act { background: var(--surface-2); }
+tbody tr:hover td.c-act { background: #FFF8F3; }
+.unit-sm, .show-md { display: none; }
+.split-bar div:first-child { border-radius: 6px 0 0 6px; } .split-bar div:last-child { border-radius: 0 6px 6px 0; }
+
+/* Filtr sahələri bərabər genişlənsin */
+.filter-bar .field { flex: 1 1 150px; }
+.filter-bar .field .select, .filter-bar .field .input { width: 100%; }
+.page-head .filter-bar { flex: 1 1 auto; justify-content: flex-end; }
+.page-head .filter-bar .field { flex: 0 1 190px; }
+
+@media (max-width: 1300px) {
+  .hide-md { display: none; }
+  .show-md { display: block; }
+}
+@media (max-width: 1200px) {
+  .hero-top .filters { width: 100%; }
+  .hero-top .filters .select { flex: 1 1 180px; }
+}
+@media (max-width: 900px) {
+  .page-head .filter-bar { justify-content: stretch; }
+  .page-head .filter-bar .field, .page-head .filter-bar .btn { flex: 1 1 calc(50% - 10px); }
+  .filter-bar .field { flex: 1 1 calc(50% - 10px); min-width: 0; }
+  .filter-bar .field:first-child { flex-basis: 100%; }
+  .drawer { width: 100vw; }
+  .drawer-head { position: relative; padding-right: 56px; }
+  #dwClose { position: absolute; top: 16px; right: 14px; }
+  .drawer-body, .drawer-head { padding-left: 16px; padding-right: 16px; }
+  .hero { padding: 20px 18px; border-radius: 18px; }
+  .hero-top .filters .select, .hero-top .filters .toggle { flex: 1 1 100%; }
+}
+/* Telefonda tapşırıq sətirləri kart kimi göstərilir */
+@media (max-width: 700px) {
+  .hide-sm { display: none; }
+  table.resp thead { display: none; }
+  table.resp, table.resp tbody { display: block; }
+  table.resp tr { display: grid; grid-template-columns: 30px 1fr auto; grid-template-areas: "chk main hours" ". owner status" ". act act"; gap: 6px 10px; padding: 14px 4px; border-bottom: 1px solid var(--border-2); }
+  table.resp td { display: block; padding: 0; border: none; min-width: 0; }
+  table.resp td.hide-sm, table.resp td.hide-md { display: none; }
+  table.resp td.c-chk { grid-area: chk; width: auto; }
+  table.resp td.c-main { grid-area: main; min-width: 0; }
+  table.resp td.c-hours { grid-area: hours; text-align: right; }
+  table.resp td.c-owner { grid-area: owner; }
+  table.resp td.c-status { grid-area: status; text-align: right; }
+  table.resp td.c-act { grid-area: act; position: static; box-shadow: none; background: none; width: auto; }
+  table.resp td.c-act .row-actions { justify-content: flex-start; }
+  table.resp tr:not(:has(.c-owner)) { grid-template-areas: "chk main hours" ". status status" ". act act"; }
+  table.resp tr:not(:has(.c-owner)) td.c-status { text-align: left; }
+  .unit-sm { display: inline; color: var(--muted); font-weight: 500; font-size: .75rem; }
+  tbody tr:hover td { background: none; }
+  .card .table-wrap { padding: 0 12px; }
+  .page-head .filter-bar .field, .page-head .filter-bar .btn { flex-basis: 100%; }
+  .bulk-bar { left: 12px; right: 12px; transform: none; justify-content: center; }
+}

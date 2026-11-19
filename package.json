@@ -2,8 +2,7 @@
   "name": "teamanalytics",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
-  "dependencies": {
-    "@vercel/functions": "^3.1.0"
+  "engines": {
+    "node": ">=20"
   }
 }

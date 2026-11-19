@@ -7,8 +7,7 @@
   <meta name="robots" content="noindex">
   <title>Giriş — Workforce Planning</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="vendor/fonts.css">
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; }
@@ -49,7 +48,7 @@
     <form class="card" id="f" autocomplete="on">
       <h1>Xoş <span>gəlmisiniz</span></h1>
       <p class="sub">Davam etmək üçün adınızı və parolunuzu daxil edin.</p>
-      <div class="f"><label for="u">İstifadəçi adı</label><input id="u" name="username" autocomplete="username" required autofocus></div>
+      <div class="f"><label for="u">İstifadəçi adı</label><input id="u" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></div>
       <div class="f"><label for="p">Parol</label><input id="p" name="password" type="password" autocomplete="current-password" required><button type="button" class="eye" id="eye">Göstər</button></div>
       <button class="go" id="go" type="submit">Daxil ol</button>
       <div class="err" id="err" role="alert"></div>

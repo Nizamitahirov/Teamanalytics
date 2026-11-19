@@ -6,9 +6,11 @@
   <meta name="theme-color" content="#090A13">
   <title>Workforce Planning — Əmək Münasibətləri</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="preload" href="vendor/fonts/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="vendor/fa/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="vendor/fonts.css">
+  <link rel="stylesheet" href="vendor/fa/css/fontawesome.min.css">
+  <link rel="stylesheet" href="vendor/fa/css/solid.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -31,7 +33,7 @@
     <div class="sync-pill" id="syncPill"><i class="fas fa-circle-notch fa-spin"></i> Yüklənir...</div>
     <div class="user-box">
       <div class="av" id="userAv">·</div>
-      <div><b id="userName">—</b><small>Google Sheet</small></div>
+      <div><b id="userName">—</b><small>Firebase</small></div>
       <button id="logoutBtn" title="Çıxış"><i class="fas fa-arrow-right-from-bracket"></i></button>
     </div>
   </div>
@@ -43,7 +45,7 @@
       <h1 id="pageTitle">İş yükü və ştat planlaması</h1>
       <div class="topbar-actions">
         <button class="btn btn-ghost icon-btn" id="undoBtn" title="Son əməliyyatı geri al" disabled><i class="fas fa-rotate-left"></i></button>
-        <button class="btn btn-ghost icon-btn" id="refreshBtn" title="Sheet-dən yenilə"><i class="fas fa-arrows-rotate"></i></button>
+        <button class="btn btn-ghost icon-btn" id="refreshBtn" title="Bazadan yenilə"><i class="fas fa-arrows-rotate"></i></button>
         <button class="btn btn-outline" id="importBtn"><i class="fas fa-file-arrow-up"></i> <span>Import</span></button>
         <button class="btn btn-dark" id="exportBtn"><i class="fas fa-file-excel"></i> <span>Excel</span></button>
         <button class="btn btn-ghost icon-btn mobile-only" id="logoutBtn2" title="Çıxış"><i class="fas fa-arrow-right-from-bracket"></i></button>
@@ -53,11 +55,7 @@
   </header>
 
   <main class="content">
-    <div id="loading" class="loading"><div class="spinner"></div><div>Məlumatlar Google Sheet-dən yüklənir...</div></div>
-    <div id="seedBanner" class="banner hidden">
-      <div><b>Google Sheet boşdur</b><p>Birbank (266) və Pashapay (75) tapşırıqlarını Sheet-ə yazmaq üçün düyməni basın.</p></div>
-      <button class="btn btn-primary" id="seedBtn"><i class="fas fa-database"></i> İlkin məlumatları yüklə</button>
-    </div>
+    <div id="loading" class="loading"><div class="spinner"></div><div>Məlumatlar yüklənir...</div></div>
 
     <!-- ============ PANEL ============ -->
     <section id="view-dashboard" class="view hidden">
@@ -79,7 +77,7 @@
         <div class="card-head">
           <div><h3>Əməkdaşların yüklənməsi</h3><div class="sub">İllik saat ÷ (norma × ştat). Qırıq xətt 100%-dir. Sütuna klikləyin — tapşırıqlar açılır.</div></div>
           <div class="legend">
-            <span><i style="background:var(--good)"></i>Normal (≤ <b id="warnLabel">85</b>%)</span>
+            <span><i style="background:var(--good)"></i>Normal (≤&nbsp;<span id="warnLabel">85</span>%)</span>
             <span><i style="background:var(--warning)"></i>Yüksək</span>
             <span><i style="background:var(--critical)"></i>Norma aşılır</span>
           </div>
@@ -175,19 +173,19 @@
             <div class="form-grid">
               <div class="field"><label>İllik norma (saat / 1 ştat)</label><input class="input" type="number" id="sNorm" min="1"></div>
               <div class="field"><label>Yüksək yük həddi (%)</label><input class="input" type="number" id="sWarn" min="1" max="100"></div>
-              <div class="full hint">2026-cı il üçün ölkə üzrə norma 1922 saatdır. Yarım ştat işləyən əməkdaşın profilində ştatı 0.5 yazın, onda onun norması 961 saat olur. Bu ayarlar Sheet-də saxlanır və hamı üçün eynidir.</div>
+              <div class="full hint">2026-cı il üçün ölkə üzrə norma 1922 saatdır. Yarım ştat işləyən əməkdaşın profilində ştatı 0.5 yazın, onda onun norması 961 saat olur. Bu ayarlar bazada saxlanır və hamı üçün eynidir.</div>
             </div>
             <div style="margin-top:14px"><button class="btn btn-primary" id="saveNormBtn"><i class="fas fa-check"></i> Yadda saxla</button></div>
           </div>
         </div>
         <div class="card">
-          <div class="card-head"><h3>Google Sheet</h3></div>
+          <div class="card-head"><h3>Məlumat bazası (Firebase)</h3></div>
           <div class="card-body">
             <p class="hint" style="margin-top:0" id="dataInfo"></p>
             <ul class="steps">
-              <li>Dəyişikliklər ekranda dərhal görünür, Sheet-ə arxa planda yazılır.</li>
-              <li>Başqalarının dəyişiklikləri hər 20 saniyədən bir avtomatik gəlir. <i class="fas fa-arrows-rotate"></i> düyməsi dərhal yeniləyir.</li>
-              <li>Sheet-də birbaşa düzəliş etmək olar: başlıq sətrinə toxunmayın, əlavə sütunlar saxlanılır.</li>
+              <li>Dəyişikliklər ekranda dərhal görünür, bazaya arxa planda yazılır.</li>
+              <li>Başqalarının dəyişiklikləri hər 10 saniyədə avtomatik gəlir. <i class="fas fa-arrows-rotate"></i> düyməsi dərhal yeniləyir.</li>
+              <li>Cədvəl şəklində baxmaq üçün <b>Excel</b> düyməsindən istifadə edin.</li>
             </ul>
           </div>
         </div>
@@ -202,10 +200,9 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-head"><h3>Giriş</h3></div>
-          <div class="card-body">
-            <p class="hint" style="margin-top:0">İstifadəçilər və parollar Vercel layihəsində <code>AUTH_USERS</code> mühit dəyişənində saxlanır. Yeni istifadəçi əlavə etmək və ya parolu dəyişmək üçün onu Vercel-də dəyişib layihəni yenidən deploy edin. Sessiya 12 saat qüvvədədir.</p>
-          </div>
+          <div class="card-head"><div><h3>İstifadəçilər</h3><div class="sub">Sistemə giriş üçün ad və parollar (Firebase-də heşlənmiş saxlanır)</div></div>
+            <button class="btn btn-primary btn-sm" id="addUserBtn"><i class="fas fa-user-plus"></i> İstifadəçi</button></div>
+          <div class="card-body" id="userList"><div class="hint">Yüklənir...</div></div>
         </div>
       </div>
     </section>
@@ -237,8 +234,7 @@
 
 <div class="toast-wrap" id="toasts"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="vendor/chart.umd.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
