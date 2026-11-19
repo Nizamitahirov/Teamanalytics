@@ -41,6 +41,13 @@ Qalanı avtomatikdir:
 
 ---
 
+## Claude Code ilə davam etmək üçün
+
+- `CLAUDE.md` — layihənin işçi təlimatı (arxitektura, məlumat modeli, biznes qaydaları, sinxron axını, əmrlər, qaydalar).
+- `docs/CONTEXT.md` — tarixçə, qərarların səbəbləri, datanın mənşəyi və keyfiyyət problemləri.
+- `SPEC.md` — v2 spesifikasiyası (növbəti böyük iş: React + TypeScript, ECharts paneli, ssenarilər, rollar, hesabatlar).
+- Lokal işləmək: `npm run dev` (mock Firestore, `Ecosystem / Ecosystem`), test: `npm run e2e`.
+
 ## Fayllar
 
 ```
@@ -49,6 +56,8 @@ api/               Server funksiyaları: login, logout, data, ops, log, users
 lib/auth.js        Giriş (Firestore users, PBKDF2) və sessiya (HMAC imzalı cookie, 12 saat)
 lib/firestore.js   Firestore REST API (service account), dəyişiklik izləmə
 public/vendor/     Şrift, ikonlar və Chart.js — CDN-siz, sürətli
+dev/               Lokal mock server və e2e test
+docs/              Kontekst və qərarlar
 data/seed.json     İlkin məlumatlar (Birbank 266 + Pashapay 75) — ictimai deyil
 ```
 

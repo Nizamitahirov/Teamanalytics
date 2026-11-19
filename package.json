@@ -4,5 +4,10 @@
   "type": "module",
   "engines": {
     "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node dev/mock-server.mjs",
+    "check": "node --check public/app.js && node -e \"Promise.all(['./lib/auth.js','./lib/firestore.js','./api/data.js','./api/ops.js','./api/users.js','./api/login.js'].map(m=>import(m))).then(()=>console.log('ok'))\"",
+    "e2e": "python3 dev/e2e.py"
   }
 }
