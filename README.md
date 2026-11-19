@@ -46,18 +46,19 @@ Qalanı avtomatikdir:
 - `CLAUDE.md` — layihənin işçi təlimatı (arxitektura, məlumat modeli, biznes qaydaları, sinxron axını, əmrlər, qaydalar).
 - `docs/CONTEXT.md` — tarixçə, qərarların səbəbləri, datanın mənşəyi və keyfiyyət problemləri.
 - `SPEC.md` — v2 spesifikasiyası (növbəti böyük iş: React + TypeScript, ECharts paneli, ssenarilər, rollar, hesabatlar).
-- Lokal işləmək: `npm run dev` (mock Firestore, `Ecosystem / Ecosystem`), test: `npm run e2e`.
+- Lokal işləmək: `npm run dev` (v1 + mock Firestore, `Ecosystem / Ecosystem`), `npm run dev:v2` (v2 önizləmə). Testlər: `npm test`, `npm run e2e`, `npm run e2e:v1`.
 
 ## Fayllar
 
 ```
-public/            Səhifələr (index.html, login.html, app.js, styles.css)
-api/               Server funksiyaları: login, logout, data, ops, log, users
-lib/auth.js        Giriş (Firestore users, PBKDF2) və sessiya (HMAC imzalı cookie, 12 saat)
-lib/firestore.js   Firestore REST API (service account), dəyişiklik izləmə
-public/vendor/     Şrift, ikonlar və Chart.js — CDN-siz, sürətli
-dev/               Lokal mock server və e2e test
-docs/              Kontekst və qərarlar
+public/            v1 səhifələri (index.html, login.html, app.js, styles.css) — hazırda canlıda olan
+api/               Server funksiyaları (TypeScript): login, logout, me, data, ops, log, users, health
+server/            Firestore REST, giriş/sessiya, HTTP köməkçiləri
+shared/            Məlumat sxemləri (Zod), mətnlər (az/en)
+src/               v2 klienti (React + Vite) — hazırlanır, hələ yayımlanmır
+dev/               Lokal mock server və e2e testlər
+tests/             Qızıl rəqəmlər, server və unit testlər
+docs/              Kontekst və qərarlar (ADR)
 data/seed.json     İlkin məlumatlar (Birbank 266 + Pashapay 75) — ictimai deyil
 ```
 

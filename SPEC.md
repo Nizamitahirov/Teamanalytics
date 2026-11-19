@@ -503,7 +503,7 @@ Hər mərhələ: branch, PR, CI yaşıl, QM-lər yoxlanıb, sahibə ekran şəki
 
 | # | Mərhələ | Nəticə | Əsas QM |
 |---|---|---|---|
-| 1 | **Təməl** | Vite+React+TS skeleti, tokenlər, shell (menyu, üst panel), login, `server/` TS-ə köçürmə, `updateMask` düzəlişi (§15.3), Zod sxemləri, mock server TS, CI, qızıl testlər v1 məntiqinə qarşı | CI yaşıl; canlı sayt v1 ilə işləyir; qızıl testlər keçir |
+| 1 | **Təməl** — icra olunub, PR gözləyir (ADR-001) | Vite+React+TS skeleti, tokenlər, shell (menyu, üst panel), login, `server/` TS-ə köçürmə, `updateMask` düzəlişi (§15.3), Zod sxemləri, mock server TS, CI, qızıl testlər v1 məntiqinə qarşı | CI yaşıl; canlı sayt v1 ilə işləyir; qızıl testlər keçir |
 | 2 | **Data qatı** | Zustand store, sync mühərriki (v1 davranışı + `_v` ziddiyyət + IndexedDB + offline növbə), undo/redo, `shared/metrics.ts` | Qızıl rəqəmlər v2 ilə; iki istifadəçi ziddiyyəti e2e |
 | 3 | **Tapşırıqlar + Əməkdaşlar** | Data grid, drawer, profil səhifəsi, ötürmə/ləğv/toplu, sətirdə redaktə, komanda paleti | v1 e2e ssenariləri v2-də keçir |
 | 4 | **Panel** | §6.2 bütün vidjetlər, ECharts temaları, "Cədvəl kimi bax", tünd rejim | Vizual testlər; a11y 0 ciddi |

@@ -1,0 +1,73 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 36px;
+  padding: 0 var(--sp-4);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  font-weight: 600;
+  font-size: var(--fs-14);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    filter var(--dur) var(--ease),
+    background var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform 100ms;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.sm {
+  min-height: 30px;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-13);
+  border-radius: var(--r-sm);
+}
+.primary {
+  background: var(--grad);
+  color: #fff;
+  box-shadow: var(--shadow-brand);
+}
+.primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.secondary {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+.secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.ghost {
+  background: none;
+  color: var(--text-2);
+}
+.ghost:hover:not(:disabled) {
+  background: var(--hover);
+}
+.danger {
+  background: #fde8e8;
+  color: #b4121b;
+}
+.success {
+  background: #e3f7ec;
+  color: #0b7a3e;
+}
+.icon {
+  width: 36px;
+  padding: 0;
+}
+.icon.sm {
+  width: 30px;
+}

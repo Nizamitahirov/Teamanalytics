@@ -16,46 +16,60 @@ Bank qrupunun **Əmək Münasibətləri şöbəsi** üçün iş yükü və ştat
 
 ## 2. Stack və qovluq xəritəsi
 
-Build addımı **yoxdur** (v1). Vercel `public/`-i statik, `api/*.js`-i Node serverless funksiya kimi yayımlayır.
+Keçid dövrü (SPEC §15): **canlı sayt hələ v1 klientidir** (`public/`, build-siz), server isə Mərhələ 1-dən TypeScript-dədir. v2 klienti (React + Vite) paralel qurulur və Mərhələ 10-a qədər deploy olunmur.
+Vercel: `public/` statik (v1), `api/*.ts` Node serverless funksiya (Vercel TS-i özü kompilyasiya edir). `vercel.json`-da `framework: null` və heç nə qurmayan `buildCommand` — Vite build-i canlıya təsir etmir.
 
 ```
-public/                 Brauzer (statik)
-  index.html            Tətbiqin qabığı: sol menyu, 5 bölmə (Panel, Əməkdaşlar, Tapşırıqlar, Jurnal, Ayarlar), modal, drawer
-  login.html            Giriş səhifəsi (öz daxili CSS-i ilə)
-  app.js                BÜTÜN klient məntiqi (~1080 sətir, IIFE, vanilla JS, innerHTML render)
-  styles.css            Dizayn sistemi (CSS dəyişənləri, responsive: 1300/1200/900/700/560 px)
-  vendor/               Lokal kitabxanalar: Inter şrifti, Font Awesome 6.5.2 (yalnız solid), Chart.js 4.4.4
-api/                    Vercel funksiyaları (ESM, Node ≥ 20)
-  login.js  logout.js   Sessiya cookie-si (POST)
-  data.js               GET: tam yükləmə və ya ?since=TS ilə delta; baza boşdursa seed yazır
-  ops.js                POST: dəyişiklik partiyası {ops:[...]}
-  log.js                GET: bütün jurnal (Excel export üçün)
-  users.js              GET/POST: istifadəçi idarəsi (add | password | remove)
-  health.js             GET: diaqnostika (auth tələb etmir, gizli dəyər göstərmir)
-lib/
-  firestore.js          Firestore REST klienti (service account JWT → OAuth token), oxuma/yazma/delta/seed/users
-  auth.js               PBKDF2 parol, HMAC imzalı sessiya cookie-si
-  http.js               requireUser, send, body, fail
+public/                 v1 klienti (dəyişməz; Mərhələ 10-da legacy/ olacaq)
+  index.html login.html app.js styles.css vendor/
+api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health
+server/                 Server məntiqi (Vercel-dən asılı deyil, testlənir)
+  firestore.ts          Firestore REST klienti; upsert = updateMask (yalnız göndərilən sahələr), buildWrites saf funksiya
+  auth.ts               PBKDF2 parol, HMAC imzalı sessiya cookie-si
+  http.ts               requireUser, send/sendError ({error, code}), parseBody (Zod), fail
+shared/                 Həm server, həm klient
+  schema.ts             Zod: Task, Employee, LogEntry, Settings, Role, Op, OpsBody, LoginBody, UsersBody
+  i18n/az.ts en.ts      Mətnlər (tip-təhlükəsiz açarlar)
+  version.ts            APP_VERSION (/api/health, UI)
+src/                    v2 React klienti (Vite, React 19, React Router, CSS Modules, Lucide)
+  app/                  router, Shell (sol menyu / aşağı naviqasiya, üst panel), auth konteksti, nav
+  features/             auth (LoginPage), placeholder (hazır olmayan bölmələr)
+  components/           Button, IconButton, EmptyState, Skeleton, BrandMark
+  lib/                  api klienti, i18n, mövzu (açıq/tünd/sistem), storage
+  styles/               tokens.css (SPEC §12.1), base.css, fonts.css (Inter latin + latin-ext)
+index.html vite.config.ts   v2 giriş nöqtəsi; publicDir = static/ (v1 public/ DEYİL)
 data/seed.json          İlkin data: 341 tapşırıq + 23 əməkdaş (ictimai deyil, yalnız serverdə oxunur)
-dev/mock-server.mjs     Lokal server: Vercel + Firestore REST mock (yaddaşda)
-dev/e2e.py              Playwright uçdan-uca test
-docs/CONTEXT.md         Tarixçə, qərarlar, data keyfiyyəti
-SPEC.md                 v2 spesifikasiyası (növbəti böyük iş)
+dev/mock-firestore.ts   Firestore REST mock (yaddaşda) — dev server və server testləri üçün
+dev/mock-server.ts      Lokal server: Vercel emulyasiyası (public/ + api/*.ts) + mock Firestore
+dev/e2e/                v2 Playwright testləri (TS)
+dev/e2e.py              v1 Playwright testi (Python) — v1 klienti TS serverə qarşı
+tests/golden/           Qızıl rəqəmlər (SPEC §13.2) — v1 formulalarının TS köçürməsi; HEÇ VAXT silinmir
+tests/server/ tests/unit/   API (mock Firestore ilə), buildWrites, Zod, i18n
+docs/                   CONTEXT.md (tarixçə), ADR-*.md (qərarlar)
+SPEC.md                 v2 spesifikasiyası
 ```
 
 ## 3. Əmrlər
 
 ```bash
-npm run dev      # http://localhost:8765 — mock Firestore ilə tam tətbiq (giriş: Ecosystem / Ecosystem)
-                 # http://localhost:8791 — mock bazanın JSON görüntüsü + API çağırış siyahısı
-npm run check    # sintaksis + server modullarının import yoxlaması
-npm run e2e      # Playwright testi (dev server işləyərkən; pip install playwright && playwright install chromium)
-                 # XLSX_PATH=/path/xlsx.full.min.js — CDN əlçatmazdırsa Excel testi üçün
+npm run dev        # http://localhost:8765 — v1 klienti + TS API, mock Firestore (giriş: Ecosystem / Ecosystem)
+                   # http://localhost:8791 — mock bazanın JSON görüntüsü + API çağırış siyahısı
+npm run dev:v2     # http://localhost:5173 — v2 klienti (Vite); /api → 8765 (npm run dev ayrıca işləməlidir)
+npm run typecheck  # tsc: server (tsconfig.json) + klient (tsconfig.app.json)
+npm run lint       # ESLint (typescript-eslint, react-hooks, jsx-a11y); public/ istisnadır
+npm run format     # Prettier (format:check — CI)
+npm test           # Vitest: qızıl testlər, server (mock Firestore), unit
+npm run build      # v2 Vite build → dist/ (deploy olunmur)
+npm run e2e        # v2 Playwright (dev serverləri özü işə salır)
+npm run e2e:v1     # v1 testi (npm run dev işləyərkən; pip install playwright openpyxl)
+                   # XLSX_PATH=/path/xlsx.full.min.js — CDN əlçatmazdırsa Excel testi üçün
+npm run ci         # typecheck + lint + format + test + build
 ```
 
-- e2e testi **təmiz mock baza** gözləyir: hər qaçışdan əvvəl `npm run dev`-i yenidən başlat.
-- Mock server real Firebase-ə qoşulmur: `FIRESTORE_API_BASE` və `FIRESTORE_FAKE_TOKEN` mühit dəyişənləri ilə `lib/firestore.js`-i öz mock-una yönəldir.
+- e2e testləri **təmiz mock baza** gözləyir: hər qaçışdan əvvəl `npm run dev`-i yenidən başlat.
+- Mock server real Firebase-ə qoşulmur: `FIRESTORE_API_BASE` və `FIRESTORE_FAKE_TOKEN` ilə `server/firestore.ts`-i öz mock-una yönəldir.
 - Sandbox/CI mühitində çox vaxt `*.googleapis.com` bağlıdır — real Firebase-i yalnız canlı saytda (`/api/health`, brauzer) yoxlamaq olar.
+- Versiyalar dəqiq pin olunub (`^` yox). TypeScript 6.x (typescript-eslint hələ TS 7-ni dəstəkləmir), ESLint 9.x (jsx-a11y hələ 10-u dəstəkləmir) — `docs/ADR-001-foundation.md`.
 
 ## 4. Mühit dəyişənləri (Vercel)
 
@@ -100,7 +114,7 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 
 1. **Açılış:** `localStorage['wfp.cache.v2']` = `{me, lastTs, state}` dərhal render olunur, sonra `/api/data?since=lastTs`.
 2. **Dəyişiklik** (`commit(label, mutator, logs)`): snapshot → mutator lokal state-i dəyişir → render → `diffOps(prev, state)` yalnız dəyişən sənədlər üçün `upsert`/`delete` əməliyyatları yaradır → növbəyə (`queue`) → `flush()` ardıcıl `POST /api/ops` (1 təkrar cəhd, uğursuzluqda tam yenidən yükləmə).
-3. **Server** (`applyOps`): hamısı bir `:commit` (≤450 yazma/hissə) + `meta/main.updated` yenilənir.
+3. **Server** (`applyOps` → `buildWrites`): Zod ilə yoxlanır (yanlış op → 400, heç nə yazılmır), hamısı bir `:commit` (≤450 yazma/hissə) + `meta/main.updated` yenilənir. Upsert `updateMask` ilə **yalnız göndərilən sahələri** yazır.
 4. **Yoxlama:** hər 10 s (səhifə görünəndə, modal bağlıyken) `GET /api/data?since=lastTs` → server `meta/main`-i oxuyur (1 oxuma); `updated === since` → `{unchanged}`; deyilsə `_ts > since` sorğuları → `{delta}`. Klient növbəsi boş deyilsə serverdən gələni **tətbiq etmir** və `lastTs`-i dəyişmir.
 5. **Undo:** son 30 snapshot; geri alma da yeni diff kimi göndərilir və jurnala "Geri alma" yazılır (jurnal geri alınmır).
 6. **Jurnal** qeydləri klientdə `id` alır → deltada təkrarlanmanın qarşısı alınır.
@@ -129,7 +143,7 @@ Qadağalar:
 
 - Sahib `main`-ə birbaşa push etməyə icazə verib ("merge etməyim"). Kiçik və yoxlanmış dəyişikliklər → birbaşa `main`. Böyük/riskli işlər (məs. SPEC v2 miqrasiyası) → branch + PR, sonra sahibdən soruş.
 - Hər push-dan sonra Vercel ~1 dəq ərzində deploy edir; `GET /api/health` → `commit` sahəsi yeni SHA-nı göstərməlidir.
-- Dəyişiklikdən əvvəl: `npm run check`; məntiq dəyişibsə `npm run dev` + `npm run e2e`. UI dəyişibsə 1440, 820 və 390 px enində ekran şəkli ilə bax.
+- Dəyişiklikdən əvvəl: `npm run ci`; məntiq dəyişibsə `npm run e2e` + `npm run e2e:v1`. UI dəyişibsə 1440, 820 və 390 px enində ekran şəkli ilə bax (`dev/e2e-shots/`).
 - Rəhbərliyə gedən rəqəmlərin hesablanma qaydasını (bölmə 5) sahibin razılığı olmadan dəyişmə.
 - Commit mesajları azərbaycanca; sonunda layihənin standart `Co-Authored-By` sətri.
 
@@ -138,7 +152,7 @@ Qadağalar:
 - `app.js` tək fayl, `innerHTML` ilə tam yenidən render; hər dəyişiklikdə bütün aktiv bölmə yenidən çəkilir (341 sətirdə problem deyil, 5 000+ sətirdə yavaşlayacaq).
 - Rəqəm formatı `toLocaleString('az-AZ')` — bəzi brauzerlərdə az-AZ ICU yoxdursa `27,850` kimi görünür.
 - Tombstone-lar və jurnal sonsuz böyüyür; arxivləmə yoxdur.
-- `applyOps` `upsert`-də **tam sənədi əvəz edir** (`updateMask` yoxdur): Firestore konsolunda və ya gələcək versiyada əlavə olunan sahələr klientin növbəti yazmasında silinir. SPEC §15.3 — v2-də ilk düzəliş.
+- ~~`applyOps` upsert-də tam sənədi əvəz edir~~ — **Mərhələ 1-də düzəldilib** (`updateMask`, SPEC §15.3; test: `tests/server/api.test.ts`).
 - Rollar yoxdur: hər istifadəçi hər şeyi edə, istifadəçi silə bilər.
 - Tarixi snapshot yoxdur → trend qrafikləri mümkün deyil.
 - Data keyfiyyəti: ad dublikatları (Farida/Fəridə, Kamila/Kamilə), təkrar sətir (`B-1770271295121` = `B-44`), id-siz sətir (`P-x71`), `P-29`-da saat uyğunsuzluğu — ətraflı `docs/CONTEXT.md`.

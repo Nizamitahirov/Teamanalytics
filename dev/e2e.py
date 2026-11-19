@@ -79,5 +79,7 @@ async def main():
         # logout
         await pa.set_viewport_size({'width':1440,'height':960}); await pa.click('#logoutBtn'); await pa.wait_for_url('**/login.html'); print('logout ok')
         print('ERRORS', errs)
+        assert not errs, errs
+        assert len(T)==341 and sum(1 for v in T.values() if v.get('is_cancelled'))==exp_cancel
         await b.close()
 asyncio.run(main())
