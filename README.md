@@ -1,63 +1,78 @@
 # Workforce Planning — Əmək Münasibətləri
 
-Şöbənin proseslərini, tapşırıqlarını və iş yükünü idarə etmək üçün veb platforma.
+Şöbənin proseslərini, tapşırıqlarını və iş yükünü idarə etmək üçün veb platforma. Vercel-də işləyir, məlumatlar Google Sheet-də saxlanır, giriş ad və parolla olur.
 
-## Nə edir
+## İmkanlar
 
-| Bölmə | İmkanlar |
+- **Panel**: illik iş həcmi, lazım olan və mövcud ştat (norma 1922 saat), ehtiyat/çatışmazlıq, normanı aşanlar, ləğvdən qənaət, optimizasiya potensialı. Əməkdaşların yük qrafiki, ötürmələrdən əvvəl/indi müqayisəsi, şirkət / fəaliyyət forması / status bölgüsü, proses və kateqoriya üzrə saatlar, ştat cədvəli.
+- **Əməkdaşlar**: yük kartları. Tapşırıqları ötürmək (qəbul edənin yükü əvvəlcədən göstərilir), ləğv, bərpa, "Hamısını ötür". Profil: şirkət, fəaliyyət forması, ştat (0.5 və s.), qrup. Adları birləşdirmək (məs. "Kamilə" → "Kamila").
+- **Tapşırıqlar**: axtarış, filtrlər, sıralama, toplu ötürmə / ləğv / bərpa / silmə.
+- **Jurnal**: hər əməliyyat — kim, nə vaxt, kimdən → kimə, şərh.
+- **Geri al** (son 30 əməliyyat, Ctrl+Z), **Excel export** (4 vərəq) və **import** (yenilə / əvəz et).
+
+## Necə sürətli işləyir
+
+- Dəyişiklik ekranda **dərhal** görünür. Sheet-ə arxa planda yazılır. Yan paneldə "Saxlanır… / Sinxron" göstərilir.
+- Server Google Sheets API ilə birbaşa işləyir (Apps Script yoxdur). Hər dəyişiklik bir sorğu ilə gedir və yalnız dəyişən sətirlərə yazılır, ona görə başqalarının dəyişiklikləri üzərinə yazılmır.
+- Başqalarının dəyişiklikləri hər 20 saniyədə avtomatik gəlir. ⟳ düyməsi dərhal yeniləyir.
+- Sheet-də birbaşa düzəliş etmək olar: başlıq sətrinə toxunmayın. Öz əlavə sütunlarınız saxlanılır.
+
+---
+
+## Quraşdırma (bir dəfəlik, ~20 dəqiqə)
+
+### 1. Google Sheet və service account
+
+1. Yeni **boş Google Sheet** yaradın (məs. "Workforce Planning DB"). Ünvandakı ID-ni kopyalayın:
+   `https://docs.google.com/spreadsheets/d/`**`BU_HİSSƏ`**`/edit` → bu **SHEET_ID**-dir.
+2. [console.cloud.google.com](https://console.cloud.google.com) → yeni layihə yaradın (məs. "workforce-planning").
+3. **APIs & Services → Library → "Google Sheets API" → Enable**.
+4. **APIs & Services → Credentials → Create credentials → Service account**. Ad verin, rol seçmək lazım deyil → **Done**.
+5. Yaranan service account-a klikləyin → **Keys → Add key → Create new key → JSON**. Fayl yüklənəcək. Onu heç kimə göndərməyin və repo-ya qoymayın.
+6. JSON faylda iki dəyər lazımdır: `client_email` və `private_key`.
+7. Google Sheet-də **Share** düyməsini basın → `client_email`-i yazın → **Editor** → **Send**.
+
+> Şirkətinizin Google Workspace-i xarici service account ilə paylaşmağa icazə vermirsə, bu addımda xəta çıxacaq. Onda IT-dən icazə istəyin və ya Sheet-i şəxsi Google hesabında yaradın.
+
+### 2. Vercel
+
+1. [vercel.com](https://vercel.com) → **Add New → Project** → GitHub-dan **Teamanalytics** repo-nu seçin → **Import**.
+2. *Framework Preset*: **Other**. Qalan ayarlara toxunmayın.
+3. **Environment Variables** bölməsinə bunları əlavə edin:
+
+| Ad | Dəyər |
 |---|---|
-| **Panel** | İllik iş həcmi, lazım olan və mövcud ştat (FTE), normanı aşan əməkdaşlar, ləğvdən qənaət, optimizasiya potensialı. Əməkdaşların yüklənmə qrafiki (norma 1922 saat), yerdəyişmədən əvvəl/indi müqayisəsi, şirkət / fəaliyyət forması / status üzrə bölgü, proses və kateqoriya üzrə saatlar, ştat cədvəli. Şirkət və fəaliyyət forması üzrə filtr, "Optimizasiyadan sonra" ssenarisi. |
-| **Əməkdaşlar** | Hər əməkdaşın kartı: tapşırıq sayı, illik saat, yük faizi. Karta klikləyəndə tapşırıqların siyahısı açılır: ötürmək, ləğv etmək, bərpa etmək, redaktə etmək, "Hamısını ötür" (əməkdaş gedəndə). Profil: şirkət, fəaliyyət forması, ştat (0.5 və s.), qrup. Adı mövcud başqa adla əvəz etsəniz, iki profil birləşir (məs. "Kamilə" → "Kamila"). |
-| **Tapşırıqlar** | Bütün tapşırıqlar: axtarış, filtrlər, sıralama. Çoxlu seçim ilə toplu ötürmə, ləğv, bərpa, silmə. Ötürmə pəncərəsi qəbul edən əməkdaşın yükünün necə dəyişəcəyini göstərir. |
-| **Jurnal** | Hər ötürmə, ləğv, bərpa, düzəliş və import: tarix, kimdən → kimə, şərh. |
-| **Ayarlar** | İllik norma, yüksək yük həddi, Google Sheet bağlantısı, boş Excel şablonu, ilkin məlumatlara qaytarma. |
+| `SHEET_ID` | 1-ci addımdakı Sheet ID |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | JSON-dakı `client_email` |
+| `GOOGLE_PRIVATE_KEY` | JSON-dakı `private_key` — `-----BEGIN PRIVATE KEY-----` ilə başlayan bütün mətn, dırnaqsız |
+| `AUTH_USERS` | İstifadəçilər: `ad:parol`, vergüllə ayrılır. Məs.: `nizami:Güclü-Parol-1,aysel:Başqa-Parol-2` |
+| `AUTH_SECRET` | Ən azı 32 simvolluq təsadüfi söz (sessiyanı imzalamaq üçün). Parol menecerinin generatoru ilə yaradın |
 
-Əlavə: **Geri al** düyməsi (və ya Ctrl+Z) son 30 əməliyyatı geri qaytarır. **Excel** düyməsi 4 vərəqli fayl yaradır (Tapşırıqlar, Əməkdaşlar, Yük analizi, Jurnal). **Import** həmin formatı və ya ilkin cədvəllərin sütun adlarını qəbul edir.
+4. **Deploy**. 1 dəqiqədən sonra sayt `https://<layihə>.vercel.app` ünvanında açılır.
+5. Sayta daxil olun → "Google Sheet boşdur" bannerində **İlkin məlumatları yüklə**. 341 tapşırıq və 23 əməkdaş Sheet-ə yazılır. Vərəqlər (Tasks, Employees, Log, Settings) avtomatik yaradılır.
 
-### Hesablama qaydaları
+### İstifadəçi əlavə etmək / parolu dəyişmək
 
-- **Cari icraçı** = "Yeni icraçı", boşdursa "İlkin icraçı".
-- **Status**: Ləğv (ləğv edilib) · Transfer (ilkin və yeni icraçı fərqlidir) · Yeni (ilkin icraçı yoxdur) · Mövcud.
-- **Yük** = cari icraçının aktiv tapşırıqlarının illik saatı ÷ (norma × ştat). Norma: 1922 saat (2026). Ləğv edilmiş işlər daxil deyil.
-- **Lazım olan ştat (FTE)** = aktiv illik saat ÷ norma.
-- **Fəaliyyət forması** əməkdaşın profilindən götürülür. Başlanğıcda Ağaəli, Aygül, İqrar, Aysel → *Project and AdHoc based*, qalanlar → *Administrativ*.
-- "Şöbə əməkdaşları" **qrup** kimi qeyd olunub: saatları cəmə daxildir, amma fərdi yük və mövcud ştat hesabına düşmür.
+Vercel → layihə → **Settings → Environment Variables** → `AUTH_USERS`-i dəyişin → **Deployments → son deploy → Redeploy**. Siyahıdan çıxarılan istifadəçinin sessiyası dərhal etibarsız olur.
+
+---
 
 ## Fayllar
 
 ```
-index.html          Səhifə
-app.js              Bütün məntiq
-styles.css          Dizayn
-seed-data.js        Başlanğıc məlumatlar (Birbank 266 + Pashapay 75 tapşırıq)
-apps-script/Code.gs Google Sheet backend
+public/            Səhifələr (index.html, login.html, app.js, styles.css)
+api/               Server funksiyaları: login, logout, data, ops, seed
+lib/auth.js        Giriş və sessiya (HMAC imzalı cookie, 12 saat)
+lib/sheets.js      Google Sheets API (service account)
+middleware.js      Giriş etməmiş istifadəçini login səhifəsinə yönləndirir
+data/seed.json     İlkin məlumatlar (Birbank 266 + Pashapay 75) — ictimai deyil
 ```
 
-## Saytı açmaq (GitHub Pages)
+## Hesablama qaydaları
 
-1. Repo → **Settings → Pages**.
-2. *Source*: **Deploy from a branch**, Branch: **main**, qovluq: **/ (root)** → Save.
-3. 1–2 dəqiqədən sonra sayt `https://nizamitahirov.github.io/Teamanalytics/` ünvanında açılır.
-
-Faylları kompüterdə birbaşa açmaq da olar (`index.html` → brauzer). İnternet lazımdır (qrafik və Excel kitabxanaları CDN-dən yüklənir).
-
-## Məlumatlar harada saxlanır
-
-**Google Sheet qoşulmayıbsa** məlumatlar yalnız həmin brauzerdə (localStorage) saxlanır. Başqa kompüterdə və ya başqa brauzerdə görünməz. Brauzer məlumatlarını təmizləsəniz, dəyişikliklər itir. Excel export ehtiyat nüsxə kimi istifadə oluna bilər.
-
-**Komanda ilə işləmək üçün Google Sheet qoşun** (bir dəfəlik, ~10 dəqiqə):
-
-1. Yeni Google Sheet yaradın (məs. "Workforce Planning DB").
-2. **Extensions → Apps Script**. `Code.gs`-dəki hər şeyi silin, bu repo-dakı `apps-script/Code.gs`-in məzmununu yapışdırın, saxlayın.
-3. **Project Settings (⚙) → Script properties → Add script property**: Property `TOKEN`, Value: uzun təsadüfi söz (məs. `wfp-7Kq2-xR91-mZ4p`). Bu açarı yalnız platformadan istifadə edənlərə verin.
-4. **Deploy → New deployment** → növ: **Web app** → *Execute as*: **Me**, *Who has access*: **Anyone** → **Deploy**. Google icazə istəyəcək: hesabınızı seçin → *Advanced* → *Go to … (unsafe)* → *Allow*.
-5. Verilən **Web app URL**-ni kopyalayın (`https://script.google.com/macros/s/.../exec`).
-6. Platformada **Ayarlar → Google Sheet bağlantısı**: URL və TOKEN-i yazın → **Qoş və yüklə**.
-7. Sheet boşdursa, **Bu məlumatları Sheet-ə yaz** düyməsini basın. Indiki məlumatlar Sheet-ə köçürülür.
-8. Komanda üzvləri də 6-cı addımı edir. Bundan sonra hər dəyişiklik avtomatik Sheet-ə yazılır.
-
-Qeydlər:
-- İki nəfər eyni anda dəyişiklik edərsə, ikinci şəxsə "ziddiyyət" bildirişi göstərilir və son versiya yüklənir. O, əməliyyatını yenidən edir.
-- `Code.gs`-i dəyişsəniz, **Deploy → Manage deployments → Edit → New version** edin, yoxsa köhnə versiya işləyir.
-- Köhnə `index.html` başqa Apps Script-ə (köhnə Sheet) qoşulmuşdu. Yeni platforma ondan istifadə etmir; o Sheet olduğu kimi qalır.
-- Giriş açarı brauzerdə saxlanır. Bu, ciddi qorunma deyil: kim açarı bilirsə, məlumatları oxuya və dəyişə bilər. Həssas məlumat (əmək haqqı və s.) bu platformaya yazılmamalıdır.
+- **Cari icraçı** = "owner_after", boşdursa "owner_before".
+- **Status**: Ləğv · Transfer (ilkin və yeni icraçı fərqlidir) · Yeni (ilkin icraçı yoxdur) · Mövcud.
+- **Yük** = aktiv tapşırıqların illik saatı ÷ (norma × ştat). Ləğv edilmiş işlər daxil deyil.
+- **Lazım olan ştat** = aktiv illik saat ÷ norma. **Mövcud ştat** = tapşırığı olan fərdi əməkdaşların ştatlarının cəmi.
+- **Fəaliyyət forması** əməkdaşın profilindən gəlir. Başlanğıcda Ağaəli, Aygül, İqrar, Aysel → *Project and AdHoc based*, qalanlar → *Administrativ*.
+- "Şöbə əməkdaşları" **qrup**dur: saatları cəmə daxildir, fərdi yükə və mövcud ştata düşmür.

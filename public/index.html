@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#090A13">
+  <title>Workforce Planning — Əmək Münasibətləri</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside class="side">
+  <div class="logo">
+    <div class="logo-mark"><i class="fas fa-people-arrows"></i></div>
+    <div><b>Workforce</b><small>Əmək Münasibətləri</small></div>
+  </div>
+  <nav class="nav" id="tabs">
+    <div class="nav-label">Planlama</div>
+    <button class="tab active" data-view="dashboard" data-title="İş yükü və ştat planlaması"><i class="fas fa-chart-pie"></i><span>Panel</span></button>
+    <button class="tab" data-view="employees" data-title="Əməkdaşlar"><i class="fas fa-users"></i><span>Əməkdaşlar</span></button>
+    <button class="tab" data-view="tasks" data-title="Tapşırıqlar"><i class="fas fa-list-check"></i><span>Tapşırıqlar</span></button>
+    <div class="nav-label">Sistem</div>
+    <button class="tab" data-view="log" data-title="Əməliyyat jurnalı"><i class="fas fa-clock-rotate-left"></i><span>Jurnal</span></button>
+    <button class="tab" data-view="settings" data-title="Ayarlar"><i class="fas fa-sliders"></i><span>Ayarlar</span></button>
+  </nav>
+  <div class="side-foot">
+    <div class="sync-pill" id="syncPill"><i class="fas fa-circle-notch fa-spin"></i> Yüklənir...</div>
+    <div class="user-box">
+      <div class="av" id="userAv">·</div>
+      <div><b id="userName">—</b><small>Google Sheet</small></div>
+      <button id="logoutBtn" title="Çıxış"><i class="fas fa-arrow-right-from-bracket"></i></button>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-row">
+      <h1 id="pageTitle">İş yükü və ştat planlaması</h1>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost icon-btn" id="undoBtn" title="Son əməliyyatı geri al" disabled><i class="fas fa-rotate-left"></i></button>
+        <button class="btn btn-ghost icon-btn" id="refreshBtn" title="Sheet-dən yenilə"><i class="fas fa-arrows-rotate"></i></button>
+        <button class="btn btn-outline" id="importBtn"><i class="fas fa-file-arrow-up"></i> <span>Import</span></button>
+        <button class="btn btn-dark" id="exportBtn"><i class="fas fa-file-excel"></i> <span>Excel</span></button>
+        <button class="btn btn-ghost icon-btn mobile-only" id="logoutBtn2" title="Çıxış"><i class="fas fa-arrow-right-from-bracket"></i></button>
+        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" class="hidden">
+      </div>
+    </div>
+  </header>
+
+  <main class="content">
+    <div id="loading" class="loading"><div class="spinner"></div><div>Məlumatlar Google Sheet-dən yüklənir...</div></div>
+    <div id="seedBanner" class="banner hidden">
+      <div><b>Google Sheet boşdur</b><p>Birbank (266) və Pashapay (75) tapşırıqlarını Sheet-ə yazmaq üçün düyməni basın.</p></div>
+      <button class="btn btn-primary" id="seedBtn"><i class="fas fa-database"></i> İlkin məlumatları yüklə</button>
+    </div>
+
+    <!-- ============ PANEL ============ -->
+    <section id="view-dashboard" class="view hidden">
+      <div class="hero">
+        <div class="hero-top">
+          <div><h2>İllik iş həcmi və ştat ehtiyacı</h2><p>Norma: <b id="normLabel">1922</b> saat / 1 ştat (2026). Ləğv edilmiş işlər daxil deyil.</p></div>
+          <div class="filters">
+            <select class="select" id="dCompany" title="Şirkət"></select>
+            <select class="select" id="dActivity" title="Fəaliyyət forması"></select>
+            <label class="toggle" title="Optimizasiyadan sonrakı saat daxil edilən işlərdə həmin dəyəri istifadə et"><input type="checkbox" id="dOpt"> Optimizasiyadan sonra</label>
+          </div>
+        </div>
+        <div class="hero-grid" id="heroStats"></div>
+      </div>
+
+      <div class="kpi-grid" id="kpis"></div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-head">
+          <div><h3>Əməkdaşların yüklənməsi</h3><div class="sub">İllik saat ÷ (norma × ştat). Qırıq xətt 100%-dir. Sütuna klikləyin — tapşırıqlar açılır.</div></div>
+          <div class="legend">
+            <span><i style="background:var(--good)"></i>Normal (≤ <b id="warnLabel">85</b>%)</span>
+            <span><i style="background:var(--warning)"></i>Yüksək</span>
+            <span><i style="background:var(--critical)"></i>Norma aşılır</span>
+          </div>
+        </div>
+        <div class="card-body"><div class="chart-box" id="loadChartBox"><canvas id="loadChart"></canvas></div></div>
+      </div>
+
+      <div class="grid-2-1">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Yerdəyişmədən əvvəl və indi</h3><div class="sub">Hər əməkdaş üzrə illik saat: ilkin bölgü və cari bölgü</div></div>
+            <div class="legend"><span><i style="background:#A3A7B7"></i>Əvvəl</span><span><i style="background:#F2501E"></i>İndi</span></div>
+          </div>
+          <div class="card-body"><div class="chart-box" style="height:380px"><canvas id="beforeAfterChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Bölgü</h3><div class="sub">Aktiv illik saatların payı</div></div></div>
+          <div class="card-body" id="splits"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><div><h3>Ən çox vaxt aparan proseslər</h3><div class="sub">Aktiv illik saat, ilk 12</div></div></div>
+          <div class="card-body"><div class="chart-box" style="height:360px"><canvas id="processChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>Kateqoriyalar üzrə</h3><div class="sub">Aktiv illik saat, ilk 12</div></div></div>
+          <div class="card-body"><div class="chart-box" style="height:360px"><canvas id="categoryChart"></canvas></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div><h3>Ştat cədvəli</h3><div class="sub">Hər əməkdaşın yükü, boş tutumu və vəziyyəti</div></div></div>
+        <div class="card-body table-wrap" id="capacityTable"></div>
+      </div>
+    </section>
+
+    <!-- ============ ƏMƏKDAŞLAR ============ -->
+    <section id="view-employees" class="view hidden">
+      <div class="page-head">
+        <p>Karta klikləyin: tapşırıqları görün, ötürün, ləğv edin.</p>
+        <div class="filter-bar" style="margin:0">
+          <div class="field"><label>Axtar</label><input class="input" id="eSearch" placeholder="Ad..."></div>
+          <div class="field"><label>Şirkət</label><select class="select" id="eCompany"></select></div>
+          <div class="field"><label>Fəaliyyət forması</label><select class="select" id="eActivity"></select></div>
+          <div class="field"><label>Sırala</label>
+            <select class="select" id="eSort"><option value="load">Yük (çoxdan aza)</option><option value="name">Ad</option><option value="tasks">Tapşırıq sayı</option></select>
+          </div>
+          <button class="btn btn-primary" id="addEmpBtn" style="height:40px"><i class="fas fa-user-plus"></i> Əməkdaş</button>
+        </div>
+      </div>
+      <div class="emp-grid" id="empGrid"></div>
+    </section>
+
+    <!-- ============ TAPŞIRIQLAR ============ -->
+    <section id="view-tasks" class="view hidden">
+      <div class="page-head">
+        <p id="taskCount"></p>
+        <button class="btn btn-primary" id="addTaskBtn"><i class="fas fa-plus"></i> Yeni tapşırıq</button>
+      </div>
+      <div class="filter-bar">
+        <div class="field" style="flex:2;min-width:220px"><label>Axtar</label><input class="input" id="tSearch" placeholder="Tapşırıq, proses, kateqoriya..."></div>
+        <div class="field"><label>Şirkət</label><select class="select" id="tCompany"></select></div>
+        <div class="field"><label>Proses</label><select class="select" id="tProcess"></select></div>
+        <div class="field"><label>Cari icraçı</label><select class="select" id="tOwner"></select></div>
+        <div class="field"><label>Status</label><select class="select" id="tStatus"></select></div>
+        <div class="field"><label>Fəaliyyət forması</label><select class="select" id="tActivity"></select></div>
+        <button class="btn btn-ghost" id="tReset" style="height:40px"><i class="fas fa-xmark"></i> Sıfırla</button>
+      </div>
+      <div class="card"><div class="table-wrap" id="taskTable" style="max-height:calc(100vh - 300px)"></div></div>
+    </section>
+
+    <!-- ============ JURNAL ============ -->
+    <section id="view-log" class="view hidden">
+      <div class="page-head">
+        <p>Hər ötürmə, ləğv, düzəliş və import kimin tərəfindən edildiyi ilə birlikdə burada qeyd olunur.</p>
+        <div class="filter-bar" style="margin:0">
+          <div class="field"><label>Əməliyyat</label><select class="select" id="lAction"></select></div>
+          <div class="field"><label>İstifadəçi</label><select class="select" id="lUser"></select></div>
+          <div class="field"><label>Axtar</label><input class="input" id="lSearch" placeholder="Ad, tapşırıq..."></div>
+        </div>
+      </div>
+      <div class="card"><div class="card-body" id="logList"></div></div>
+    </section>
+
+    <!-- ============ AYARLAR ============ -->
+    <section id="view-settings" class="view hidden">
+      <div class="settings-grid">
+        <div class="card">
+          <div class="card-head"><h3>İş norması</h3></div>
+          <div class="card-body">
+            <div class="form-grid">
+              <div class="field"><label>İllik norma (saat / 1 ştat)</label><input class="input" type="number" id="sNorm" min="1"></div>
+              <div class="field"><label>Yüksək yük həddi (%)</label><input class="input" type="number" id="sWarn" min="1" max="100"></div>
+              <div class="full hint">2026-cı il üçün ölkə üzrə norma 1922 saatdır. Yarım ştat işləyən əməkdaşın profilində ştatı 0.5 yazın, onda onun norması 961 saat olur. Bu ayarlar Sheet-də saxlanır və hamı üçün eynidir.</div>
+            </div>
+            <div style="margin-top:14px"><button class="btn btn-primary" id="saveNormBtn"><i class="fas fa-check"></i> Yadda saxla</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Google Sheet</h3></div>
+          <div class="card-body">
+            <p class="hint" style="margin-top:0" id="dataInfo"></p>
+            <ul class="steps">
+              <li>Dəyişikliklər ekranda dərhal görünür, Sheet-ə arxa planda yazılır.</li>
+              <li>Başqalarının dəyişiklikləri hər 20 saniyədən bir avtomatik gəlir. <i class="fas fa-arrows-rotate"></i> düyməsi dərhal yeniləyir.</li>
+              <li>Sheet-də birbaşa düzəliş etmək olar: başlıq sətrinə toxunmayın, əlavə sütunlar saxlanılır.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Excel</h3></div>
+          <div class="card-body">
+            <ul class="steps">
+              <li><b>Export</b> 4 vərəq yaradır: Tapşırıqlar, Əməkdaşlar, Yük analizi, Jurnal.</li>
+              <li><b>Import</b> eyni formatı (və ya ilkin cədvəllərin sütun adlarını) qəbul edir: id üzrə yeniləyib əlavə etmək və ya hamısını əvəz etmək olar.</li>
+            </ul>
+            <div style="margin-top:14px"><button class="btn btn-outline" id="templateBtn"><i class="fas fa-file-arrow-down"></i> Boş şablon</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Giriş</h3></div>
+          <div class="card-body">
+            <p class="hint" style="margin-top:0">İstifadəçilər və parollar Vercel layihəsində <code>AUTH_USERS</code> mühit dəyişənində saxlanır. Yeni istifadəçi əlavə etmək və ya parolu dəyişmək üçün onu Vercel-də dəyişib layihəni yenidən deploy edin. Sessiya 12 saat qüvvədədir.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="bulk-bar hidden" id="bulkBar">
+  <span id="bulkCount"></span>
+  <button class="btn btn-outline btn-sm" id="bulkTransfer"><i class="fas fa-right-left"></i> Ötür</button>
+  <button class="btn btn-outline btn-sm" id="bulkCancel"><i class="fas fa-ban"></i> Ləğv et</button>
+  <button class="btn btn-outline btn-sm" id="bulkRestore"><i class="fas fa-rotate"></i> Bərpa et</button>
+  <button class="btn btn-outline btn-sm" id="bulkDelete"><i class="fas fa-trash"></i> Sil</button>
+  <button class="btn btn-ghost btn-sm" id="bulkClear" style="color:#fff" title="Seçimi təmizlə"><i class="fas fa-xmark"></i></button>
+</div>
+
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head" id="drawerHead"></div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-head"><h2 id="modalTitle"></h2><button class="btn btn-ghost icon-btn" data-close><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
