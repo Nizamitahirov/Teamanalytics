@@ -1,5 +1,5 @@
 {
-  // Server, API, shared, dev və testlər (Node). Klient: tsconfig.app.json
+  // Server, API, shared, dev (Node, NodeNext — Vercel üçün `.js` uzantıları məcburidir). Klient: tsconfig.app.json, testlər: tsconfig.test.json
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2023", "DOM"],
@@ -18,5 +18,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["api", "server", "shared", "dev/**/*.ts", "tests", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
+  "include": ["api", "server", "shared", "dev/**/*.ts", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
 }

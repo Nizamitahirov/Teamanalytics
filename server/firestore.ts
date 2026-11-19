@@ -12,7 +12,7 @@
 //
 // v2 dəyişikliyi (SPEC §15.3): upsert artıq sənədi tam əvəz etmir — `updateMask` ilə yalnız göndərilən
 // sahələr yazılır. Firestore-da v1 klientinin bilmədiyi sahələr (v2 sahələri, konsolda əlavə olunanlar) qorunur.
-import { SETTINGS_KEYS, type Op } from '../shared/schema.js';
+import { SETTINGS_KEYS, type Conflict, type Op } from '../shared/schema.js';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const apiRoot = () => process.env.FIRESTORE_API_BASE || 'https://firestore.googleapis.com/v1';
@@ -30,11 +30,23 @@ type FsValue =
   | { timestampValue: string };
 type FsFields = Record<string, FsValue>;
 type FsDocument = { name: string; fields?: FsFields };
+type FsTransform =
+  { fieldPath: string; setToServerValue: 'REQUEST_TIME' } | { fieldPath: string; increment: { integerValue: string } };
+
+/** Firestore HTTP xətası (status ilə — tranzaksiya ziddiyyətini (409 ABORTED) təkrar cəhd üçün tanıyırıq). */
+export class FirestoreError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
 export type FsWrite =
   | {
       update: { name: string; fields: FsFields };
       updateMask?: { fieldPaths: string[] };
-      updateTransforms?: { fieldPath: string; setToServerValue: 'REQUEST_TIME' }[];
+      updateTransforms?: FsTransform[];
     }
   | { delete: string };
 
@@ -151,7 +163,7 @@ async function fs(path: string, { method = 'GET', body, query, allow404 = false 
       throw new Error(
         `Firestore verilənlər bazası tapılmadı (${dbPath()}). Firebase-də Firestore Database yaradıldığını və FIRESTORE_DATABASE-i yoxlayın. ${msg}`,
       );
-    throw new Error(`Firestore xətası (${res.status}): ${msg}`);
+    throw new FirestoreError(`Firestore xətası (${res.status}): ${msg}`, res.status);
   }
   return j;
 }
@@ -273,7 +285,9 @@ export async function readFullLog() {
 }
 
 /* ---------- yazma ---------- */
-const stamp = [{ fieldPath: '_ts', setToServerValue: 'REQUEST_TIME' as const }];
+const stamp: FsTransform[] = [{ fieldPath: '_ts', setToServerValue: 'REQUEST_TIME' }];
+// Tapşırıq/əməkdaş sənədlərində hər yazma versiyanı artırır (v1 klientinin yazmaları da) — SPEC §4.3
+const stampV: FsTransform[] = [...stamp, { fieldPath: '_v', increment: { integerValue: '1' } }];
 function metaWrite(settings: Record<string, number> = {}): FsWrite {
   const fields = Object.fromEntries(Object.entries(settings).map(([k, v]) => [k, toValue(v)]));
   return {
@@ -294,19 +308,28 @@ export function upsertWrite(coll: string, key: string, row: Record<string, unkno
   return {
     update: { name: docName(coll, key), fields },
     updateMask: { fieldPaths: Object.keys(fields).map(fieldPath) },
-    updateTransforms: stamp,
+    updateTransforms: stampV,
   };
 }
 
-async function commit(writes: FsWrite[]): Promise<void> {
+async function commit(writes: FsWrite[], transaction?: string): Promise<void> {
   const metaName = docName('meta', 'main');
-  // Böyük partiyaları hissələrə bölür; hər hissənin sonunda meta.updated yenilənir
+  // Böyük partiyaları hissələrə bölür; hər hissənin sonunda meta.updated yenilənir.
+  // Tranzaksiya yalnız birinci hissəyə aiddir (versiya yoxlanan sənədlər həmişə orada — bax applyOps).
   for (let i = 0; i < writes.length; i += MAX_WRITES) {
     const chunk = writes.slice(i, i + MAX_WRITES);
     if (!chunk.some((w) => 'update' in w && w.update.name === metaName)) chunk.push(metaWrite());
-    await fs(`${docsRoot()}:commit`, { method: 'POST', body: { writes: chunk } });
+    await fs(`${docsRoot()}:commit`, {
+      method: 'POST',
+      body: { writes: chunk, ...(i === 0 && transaction ? { transaction } : {}) },
+    });
   }
 }
+
+const opKey = (op: Op): string | null => {
+  if (op.t === 'log' || op.table === 'Settings') return null;
+  return String(op.t === 'delete' ? op.key : op.table === 'Tasks' ? op.row.id : op.row.name).trim();
+};
 
 /** Op-ları Firestore yazılarına çevirir (saf funksiya — testlənir). */
 export function buildWrites(ops: Op[], user: string, now = new Date().toISOString()): FsWrite[] {
@@ -328,15 +351,15 @@ export function buildWrites(ops: Op[], user: string, now = new Date().toISOStrin
       continue;
     }
     const coll = COLL[op.table];
+    const key = opKey(op) as string;
     if (op.t === 'delete') {
       writes.push({
-        update: { name: docName(coll, op.key.trim()), fields: { _deleted: { booleanValue: true } } },
+        update: { name: docName(coll, key), fields: { _deleted: { booleanValue: true } } },
         updateMask: { fieldPaths: ['_deleted'] },
-        updateTransforms: stamp,
+        updateTransforms: stampV,
       });
       continue;
     }
-    const key = String(op.table === 'Tasks' ? op.row.id : op.row.name).trim();
     const row = op.table === 'Tasks' ? { ...op.row, updated_by: user, updated_at: op.row.updated_at || now } : { ...op.row };
     writes.push(upsertWrite(coll, key, row));
   }
@@ -345,13 +368,106 @@ export function buildWrites(ops: Op[], user: string, now = new Date().toISOStrin
   return writes;
 }
 
+/* ---------- versiya ziddiyyəti (SPEC §4.3) ---------- */
+// Müqayisədə '' və null eynidir (toValue('') → null)
+const norm = (v: unknown) => (v === '' || v === undefined ? null : v);
+
 /**
- * ops: { t:'upsert', table:'Tasks'|'Employees'|'Settings', row } | { t:'delete', table, key } | { t:'log', row }
- * (Zod ilə yoxlanmış — shared/schema.ts → OpSchema)
+ * Versiyalı op-ları serverdəki cari sənədlərlə müqayisə edir (saf funksiya).
+ * - `v` cari `_v`-yə bərabərdir → qəbul.
+ * - Fərqlidir, amma upsert-in dəyişdirdiyi sahələrin hamısı serverdə hələ `base` dəyərindədir
+ *   (yəni başqası FƏRQLİ sahələri dəyişib) → səssiz birləşdirmə, qəbul.
+ * - Əks halda → ziddiyyət; həmin sənədin yazısı və ona aid jurnal qeydləri atılır.
+ * `v` olmayan op-lar (v1 klienti) yoxlanmadan qəbul olunur.
  */
-export async function applyOps(ops: Op[], user: string): Promise<void> {
-  const writes = buildWrites(ops, user);
-  if (writes.length) await commit(writes);
+export function resolveVersions(
+  ops: Op[],
+  current: Map<string, Doc | null>,
+): { accepted: Op[]; conflicts: Conflict[]; versions: Record<string, number> } {
+  const conflicts: Conflict[] = [];
+  const versions: Record<string, number> = {};
+  const rejected = new Set<string>();
+  const state = new Map(current);
+  const kept: Op[] = [];
+  for (const op of ops) {
+    if (op.t === 'log' || op.table === 'Settings' || !('v' in op) || op.v === undefined) {
+      kept.push(op);
+      continue;
+    }
+    const key = opKey(op) as string;
+    const id = `${op.table}/${key}`;
+    const cur = state.get(id) ?? null;
+    const curV = Number(cur?._v) || 0;
+    const alive = cur && !cur._deleted;
+    let ok = op.v === curV;
+    if (!ok && op.t === 'upsert' && op.base && alive) ok = Object.entries(op.base).every(([f, b]) => norm(cur[f]) === norm(b));
+    if (!ok) {
+      rejected.add(id);
+      const theirs = alive
+        ? (Object.fromEntries(Object.entries(cur).filter(([k]) => !k.startsWith('_'))) as Record<string, Scalar>)
+        : null;
+      conflicts.push({ table: op.table, key, v: curV, theirs, by: (cur?.updated_by as string) || null });
+      continue;
+    }
+    versions[id] = curV + 1;
+    const next: Doc =
+      op.t === 'delete'
+        ? { ...(cur ?? { _id: key }), _deleted: true, _v: curV + 1 }
+        : { ...(cur ?? { _id: key }), ...op.row, _deleted: false, _v: curV + 1 };
+    state.set(id, next);
+    kept.push(op);
+  }
+  // Rədd edilmiş tapşırıqlara aid jurnal qeydləri yazılmır (baş verməyən əməliyyat jurnala düşməsin)
+  const accepted = kept.filter((op) => !(op.t === 'log' && op.row.task_id && rejected.has(`Tasks/${String(op.row.task_id)}`)));
+  return { accepted, conflicts, versions };
+}
+
+export type ApplyResult = { versions: Record<string, number>; conflicts: Conflict[] };
+
+/**
+ * ops: { t:'upsert', table:'Tasks'|'Employees'|'Settings', row, v?, base? } | { t:'delete', table, key, v? } | { t:'log', row }
+ * (Zod ilə yoxlanmış — shared/schema.ts → OpSchema)
+ * Versiyalı op varsa: tranzaksiya → batchGet (dəyişən sənəd sayı qədər oxuma) → resolveVersions → commit.
+ */
+export async function applyOps(ops: Op[], user: string): Promise<ApplyResult> {
+  type VOp = Extract<Op, { v?: number }>;
+  const versioned = ops.filter((op): op is VOp => op.t !== 'log' && op.table !== 'Settings' && 'v' in op && op.v !== undefined);
+  if (!versioned.length) {
+    const writes = buildWrites(ops, user);
+    if (writes.length) await commit(writes);
+    return { versions: {}, conflicts: [] };
+  }
+  // Versiyalı yazılar birinci hissəyə (tranzaksiyaya) düşsün
+  const ordered = [...versioned, ...ops.filter((op) => !(versioned as Op[]).includes(op))];
+  for (let attempt = 1; ; attempt++) {
+    const { transaction } = (await fs(`${docsRoot()}:beginTransaction`, {
+      method: 'POST',
+      body: { options: { readWrite: {} } },
+    })) as { transaction: string };
+    try {
+      const ids = [...new Set(versioned.map((op) => `${op.table}/${opKey(op)}`))];
+      const names = ids.map((id) => {
+        const [table, ...rest] = id.split('/');
+        return docName(COLL[table as keyof typeof COLL], rest.join('/'));
+      });
+      const got = (await fs(`${docsRoot()}:batchGet`, { method: 'POST', body: { documents: names, transaction } })) as {
+        found?: FsDocument;
+        missing?: string;
+      }[];
+      const byName = new Map<string, Doc>();
+      for (const r of got) if (r.found) byName.set(r.found.name, fromDoc(r.found));
+      const current = new Map(ids.map((id, i) => [id, byName.get(names[i]) ?? null]));
+      const res = resolveVersions(ordered, current);
+      const writes = buildWrites(res.accepted, user);
+      if (writes.length) await commit(writes, transaction);
+      else await fs(`${docsRoot()}:rollback`, { method: 'POST', body: { transaction } });
+      return { versions: res.versions, conflicts: res.conflicts };
+    } catch (e) {
+      // Eyni anda başqa tranzaksiya eyni sənədi dəyişdi → Firestore ABORTED (409); yenidən oxu və cəhd et
+      if (e instanceof FirestoreError && e.status === 409 && attempt < 4) continue;
+      throw e;
+    }
+  }
 }
 
 /** Baza boşdursa ilkin məlumatları yazır. */

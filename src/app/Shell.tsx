@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   Bell,
@@ -21,6 +21,10 @@ import { useTheme } from '../lib/theme';
 import { NAV, navByPath } from './nav';
 import { useAuth } from './auth';
 import type { MeResponse } from '../../shared/schema';
+import { dataStore, useData } from '../store';
+import { useSyncLoop } from '../store/useSyncLoop';
+import { ConflictDialog } from '../features/sync/ConflictDialog';
+import { SyncPill } from '../features/sync/SyncPill';
 import s from './Shell.module.css';
 
 const COLLAPSE_KEY = 'wfp.v2.sideCollapsed';
@@ -28,7 +32,17 @@ const COLLAPSE_KEY = 'wfp.v2.sideCollapsed';
 /** Tətbiqin qabığı: sol menyu (≥ 1024 px) / aşağı naviqasiya, üst panel, məzmun (SPEC §5). */
 export function Shell({ me }: { me: MeResponse }) {
   const { t } = useI18n();
-  const { logout } = useAuth();
+  const { logout: authLogout, refresh } = useAuth();
+  // Sessiya bitibsə (401) auth vəziyyətini yenilə → giriş səhifəsinə yönəlir
+  const onUnauthorized = useCallback(() => void refresh(), [refresh]);
+  useSyncLoop(onUnauthorized);
+  const undoTop = useData((st) => st.undo[st.undo.length - 1]?.label);
+  const redoTop = useData((st) => st.redo[st.redo.length - 1]?.label);
+  // Çıxışda lokal keş (IndexedDB) silinir — paylaşılan kompüterdə data qalmasın
+  const logout = useCallback(async () => {
+    await dataStore.getState().clearLocal();
+    await authLogout();
+  }, [authLogout]);
   const { theme, cycle } = useTheme();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => storage.get(COLLAPSE_KEY) === '1');
@@ -94,10 +108,7 @@ export function Shell({ me }: { me: MeResponse }) {
           {NAV.filter((n) => n.group === 'system').map(link)}
         </nav>
         <div className={s.sideFoot}>
-          <div className={s.pill} role="status" title={t('sync.preview')}>
-            <i aria-hidden="true" />
-            <span>{t('sync.preview')}</span>
-          </div>
+          <SyncPill className={s.pill} />
           <div className={s.user}>
             <div className={s.avatar} aria-hidden="true">
               {initial}
@@ -133,6 +144,7 @@ export function Shell({ me }: { me: MeResponse }) {
             <h1 className={s.title}>{title}</h1>
           </div>
           <div className={s.actions}>
+            <SyncPill className={`${s.pill} ${s.mobilePill}`} />
             <button
               type="button"
               className={s.search}
@@ -144,10 +156,20 @@ export function Shell({ me }: { me: MeResponse }) {
               <span>{t('top.search')}</span>
               <kbd>Ctrl K</kbd>
             </button>
-            <IconButton label={`${t('top.undo')} — ${soon}`} aria-disabled="true" className={s.hideSm}>
+            <IconButton
+              label={undoTop ? t('top.undoWith', { label: undoTop }) : t('top.nothingUndo')}
+              disabled={!undoTop}
+              onClick={() => dataStore.getState().undoLast()}
+              className={s.hideSm}
+            >
               <Undo2 size={18} aria-hidden="true" />
             </IconButton>
-            <IconButton label={`${t('top.redo')} — ${soon}`} aria-disabled="true" className={s.hideSm}>
+            <IconButton
+              label={redoTop ? t('top.redoWith', { label: redoTop }) : t('top.nothingRedo')}
+              disabled={!redoTop}
+              onClick={() => dataStore.getState().redoLast()}
+              className={s.hideSm}
+            >
               <Redo2 size={18} aria-hidden="true" />
             </IconButton>
             <IconButton label={`${t('top.notifications')} — ${soon}`} aria-disabled="true">
@@ -195,6 +217,7 @@ export function Shell({ me }: { me: MeResponse }) {
           </div>
         </>
       )}
+      <ConflictDialog />
     </div>
   );
 }

@@ -1,0 +1,11 @@
+{
+  // Testlər həm server (NodeNext, `.js` importlar), həm klient (src/, uzantısız importlar) kodunu import edir → Bundler.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx"
+  },
+  "include": ["tests", "dev/**/*.ts", "src/store", "src/lib", "shared"]
+}

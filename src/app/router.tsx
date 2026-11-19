@@ -5,6 +5,7 @@ import { Shell } from './Shell';
 import { NAV } from './nav';
 import { LoginPage } from '../features/auth/LoginPage';
 import { PlaceholderPage } from '../features/placeholder/PlaceholderPage';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { NotFoundPage } from '../features/placeholder/NotFoundPage';
 import { EmptyState } from '../components/EmptyState';
 import { Button } from '../components/Button';
@@ -58,7 +59,7 @@ export const router = createBrowserRouter([
     children: [
       ...NAV.map((n) =>
         n.path === '/'
-          ? { index: true, element: <PlaceholderPage /> }
+          ? { index: true, element: <DashboardPage /> }
           : { path: n.path.slice(1) + '/*', element: <PlaceholderPage /> },
       ),
       { path: '*', element: <NotFoundPage /> },

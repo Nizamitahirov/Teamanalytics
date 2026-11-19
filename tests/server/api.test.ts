@@ -126,6 +126,7 @@ describe('data + ops', () => {
     const row = { ...t, owner_after: 'Zümrüd' };
     delete row.updated_by;
     delete row.priority;
+    delete row._v; // v1 klienti _v göndərmir (normalizeTask yalnız öz sahələrini saxlayır)
     const r = await api('/api/ops', { json: { ops: [{ t: 'upsert', table: 'Tasks', row }] } });
     expect(r.status).toBe(200);
     const after = doc('tasks/B-25');
@@ -138,6 +139,7 @@ describe('data + ops', () => {
   it('delta yalnız dəyişən sənədləri qaytarır', async () => {
     const { body } = await api('/api/data');
     const row = { ...body.tasks.find((x: { id: string }) => x.id === 'B-1'), hours: 13 };
+    delete row._v;
     await api('/api/ops', { json: { ops: [{ t: 'upsert', table: 'Tasks', row }] } });
     const d = await api(`/api/data?since=${encodeURIComponent(body.ts)}`);
     expect(d.body.delta).toBe(true);

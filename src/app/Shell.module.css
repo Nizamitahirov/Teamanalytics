@@ -140,6 +140,21 @@
   background: #ffb020;
   flex-shrink: 0;
 }
+.pill[data-status='idle'] i {
+  background: #4ade80;
+}
+.pill[data-status='offline'] i {
+  background: #9aa0b4;
+}
+.pill[data-status='error'] {
+  color: #ffb4b4;
+}
+.pill[data-status='error'] i {
+  background: #ff6b6b;
+}
+.mobilePill {
+  display: none;
+}
 .collapsed .pill {
   justify-content: center;
 }
@@ -337,6 +352,19 @@
     width: 36px;
     padding: 0;
     justify-content: center;
+  }
+  .mobilePill {
+    display: flex;
+    max-width: 44vw;
+    overflow: hidden;
+    background: var(--ink);
+  }
+  .mobilePill span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mobilePill[data-status='idle'] {
+    display: none;
   }
   .search span,
   .search kbd,

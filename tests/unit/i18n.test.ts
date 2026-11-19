@@ -10,7 +10,7 @@ describe('i18n', () => {
     for (const k of Object.keys(az) as (keyof typeof az)[]) {
       expect(az[k].trim(), k).not.toBe('');
       expect(en[k].trim(), k).not.toBe('');
-      expect(en[k].match(/\{\w+\}/g) ?? [], k).toEqual(az[k].match(/\{\w+\}/g) ?? []);
+      expect((en[k].match(/\{\w+\}/g) ?? []).sort(), k).toEqual((az[k].match(/\{\w+\}/g) ?? []).sort());
     }
   });
 });

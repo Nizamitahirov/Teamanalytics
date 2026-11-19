@@ -2,12 +2,8 @@
 // Mövcud v1 sahələri dəyişmir; v1 klientinin göndərdiyi hər sorğu bu sxemlərdən keçməlidir.
 import { z } from 'zod';
 
-export const ACT_ADMIN = 'Administrativ';
-export const ACT_PROJECT = 'Project and AdHoc based';
-export const DEFAULT_SETTINGS = { norm: 1922, warn: 85 } as const;
-export const SETTINGS_KEYS = ['norm', 'warn'] as const;
-export const MAX_TEXT = 2000;
-export const MAX_OPS = 3000;
+import { MAX_OPS, MAX_TEXT, SETTINGS_KEYS } from './constants.js';
+export * from './constants.js';
 
 /* ---------- əsas obyektlər ---------- */
 const text = z.string().max(MAX_TEXT);
@@ -82,15 +78,26 @@ const DocKey = z
 const keyed = (field: string) =>
   Row.refine((r) => DocKey.safeParse(r[field]).success, { message: `"${field}" boş və ya yanlışdır` });
 
+// v2 klienti hər upsert/delete-də gördüyü versiyanı (`v`) və dəyişən sahələrin köhnə dəyərlərini (`base`) göndərir.
+// v1 klienti bunları göndərmir → versiya yoxlaması olmadan yazılır (keçid dövrü, SPEC §15.2).
+const Version = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+const Base = z.record(FieldName, Scalar);
+
 export const OpSchema = z.union([
-  z.object({ t: z.literal('upsert'), table: z.literal('Tasks'), row: keyed('id') }),
-  z.object({ t: z.literal('upsert'), table: z.literal('Employees'), row: keyed('name') }),
+  z.object({ t: z.literal('upsert'), table: z.literal('Tasks'), row: keyed('id'), v: Version.optional(), base: Base.optional() }),
+  z.object({
+    t: z.literal('upsert'),
+    table: z.literal('Employees'),
+    row: keyed('name'),
+    v: Version.optional(),
+    base: Base.optional(),
+  }),
   z.object({
     t: z.literal('upsert'),
     table: z.literal('Settings'),
     row: z.object({ key: z.enum(SETTINGS_KEYS), value: z.union([z.number().finite(), z.string().max(32)]) }),
   }),
-  z.object({ t: z.literal('delete'), table: z.enum(['Tasks', 'Employees']), key: DocKey }),
+  z.object({ t: z.literal('delete'), table: z.enum(['Tasks', 'Employees']), key: DocKey, v: Version.optional() }),
   z.object({ t: z.literal('log'), row: Row }),
 ]);
 export type Op = z.infer<typeof OpSchema>;
@@ -113,6 +120,24 @@ export const UsersBodySchema = z.object({
 
 /* ---------- API cavabları ---------- */
 export type ApiError = { error: string; code: string };
+
+/** Versiya ziddiyyəti: başqa istifadəçi sənədi bizdən əvvəl dəyişib (SPEC §4.3). */
+export type Conflict = {
+  table: 'Tasks' | 'Employees';
+  key: string;
+  /** Serverdəki cari versiya */
+  v: number;
+  /** Serverdəki cari sənəd (silinibsə null) */
+  theirs: Record<string, string | number | boolean | null> | null;
+  /** Son dəyişən istifadəçi (məlumdursa) */
+  by: string | null;
+};
+export type OpsResponse = {
+  ok: true;
+  /** Uğurla yazılan sənədlərin yeni versiyaları: "Tasks/B-1" → 4 */
+  versions: Record<string, number>;
+  conflicts: Conflict[];
+};
 export type MeResponse = {
   user: { name: string; role: Role };
   settings: Settings;

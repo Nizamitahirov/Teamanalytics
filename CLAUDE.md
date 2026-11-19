@@ -24,17 +24,22 @@ public/                 v1 klienti (dəyişməz; Mərhələ 10-da legacy/ olacaq
   index.html login.html app.js styles.css vendor/
 api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health
 server/                 Server məntiqi (Vercel-dən asılı deyil, testlənir)
-  firestore.ts          Firestore REST klienti; upsert = updateMask (yalnız göndərilən sahələr), buildWrites saf funksiya
+  firestore.ts          Firestore REST klienti; upsert = updateMask, `_v` increment, tranzaksiya + resolveVersions (ziddiyyət)
   auth.ts               PBKDF2 parol, HMAC imzalı sessiya cookie-si
   http.ts               requireUser, send/sendError ({error, code}), parseBody (Zod), fail
 shared/                 Həm server, həm klient
-  schema.ts             Zod: Task, Employee, LogEntry, Settings, Role, Op, OpsBody, LoginBody, UsersBody
+  constants.ts          Sabitlər (Zod-suz — klient bundle-ı üçün)
+  schema.ts             Zod: Task, Employee, LogEntry, Settings, Role, Op (+ v, base), OpsBody, Conflict, OpsResponse
+  model.ts              normalizeTask/Employee, curOwner, statusOf, diffOps (yalnız dəyişən sahələr + v/base)
+  metrics.ts            SPEC §7 formulaları — TƏK MƏNBƏ (Panel və hesabatlar buradan)
+  format.ts             Rəqəm formatı (minlik U+202F, onluq vergül) — Intl istifadə olunmur (ADR-002)
   i18n/az.ts en.ts      Mətnlər (tip-təhlükəsiz açarlar)
   version.ts            APP_VERSION (/api/health, UI)
 src/                    v2 React klienti (Vite, React 19, React Router, CSS Modules, Lucide)
   app/                  router, Shell (sol menyu / aşağı naviqasiya, üst panel), auth konteksti, nav
-  features/             auth (LoginPage), placeholder (hazır olmayan bölmələr)
-  components/           Button, IconButton, EmptyState, Skeleton, BrandMark
+  store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), persist (IndexedDB), useSyncLoop
+  features/             auth, dashboard (hero + KPI), sync (SyncPill, ConflictDialog), placeholder
+  components/           Button, IconButton, Modal, EmptyState, Skeleton, BrandMark
   lib/                  api klienti, i18n, mövzu (açıq/tünd/sistem), storage
   styles/               tokens.css (SPEC §12.1), base.css, fonts.css (Inter latin + latin-ext)
 index.html vite.config.ts   v2 giriş nöqtəsi; publicDir = static/ (v1 public/ DEYİL)
@@ -55,7 +60,7 @@ SPEC.md                 v2 spesifikasiyası
 npm run dev        # http://localhost:8765 — v1 klienti + TS API, mock Firestore (giriş: Ecosystem / Ecosystem)
                    # http://localhost:8791 — mock bazanın JSON görüntüsü + API çağırış siyahısı
 npm run dev:v2     # http://localhost:5173 — v2 klienti (Vite); /api → 8765 (npm run dev ayrıca işləməlidir)
-npm run typecheck  # tsc: server (tsconfig.json) + klient (tsconfig.app.json)
+npm run typecheck  # tsc: server (tsconfig.json, NodeNext) + klient (tsconfig.app.json) + testlər (tsconfig.test.json)
 npm run lint       # ESLint (typescript-eslint, react-hooks, jsx-a11y); public/ istisnadır
 npm run format     # Prettier (format:check — CI)
 npm test           # Vitest: qızıl testlər, server (mock Firestore), unit
@@ -87,13 +92,14 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 
 | Kolleksiya | Sənəd ID | Sahələr |
 |---|---|---|
-| `tasks` | `id` (məs. `B-25`, `P-17`, `T-…`) | `id, company, process, category, task, description, owner_before, owner_after, min_per_key, annual_freq, unit, hours, after_opt, is_cancelled, updated_at, updated_by` + sistem: `_ts`, `_deleted` |
-| `employees` | `name` (dəqiq ad, məs. `Şöbə əməkdaşları`) | `name, company, activity, fte, is_group, active` + `_ts`, `_deleted` |
+| `tasks` | `id` (məs. `B-25`, `P-17`, `T-…`) | `id, company, process, category, task, description, owner_before, owner_after, min_per_key, annual_freq, unit, hours, after_opt, is_cancelled, updated_at, updated_by` + sistem: `_ts`, `_deleted`, `_v` |
+| `employees` | `name` (dəqiq ad, məs. `Şöbə əməkdaşları`) | `name, company, activity, fte, is_group, active` + `_ts`, `_deleted`, `_v` |
 | `log` | klientin yaratdığı `L-…` id | `ts, user, action, task_id, task_label, from, to, comment` + `_ts` |
 | `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn` (ayarlar) |
 | `users` | ad kiçik hərflə (`ecosystem`) | `name, salt, hash, iter, active, created_by` — **heç vaxt klientə göndərilmir** |
 
 - `_ts`: hər yazmada server vaxtı (`REQUEST_TIME` transform). Delta sinxronun əsası.
+- `_v`: versiya — hər yazmada server `increment` ilə artırır (v1 yazmaları da); v2 klienti ziddiyyəti bununla aşkarlayır (ADR-002). `_v`-siz köhnə sənəd = 0.
 - `_deleted: true`: yumşaq silmə (tombstone). Tam yükləmədə filtrlənir, deltada klientə "sil" siqnalı kimi gedir. Tombstone-lar heç vaxt təmizlənmir (bilinən texniki borc).
 - ID prefiksləri: `B-` Birbank (ilkin cədvəl 1), `P-` Pashapay (ilkin cədvəl 2), `T-` platformada yaradılan.
 
@@ -111,6 +117,8 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 - `hours` ilin cəmidir; mənbə cədvəlində `min_per_key × annual_freq / 60` ilə hesablanıb (formada avtomatik doldurulur, amma `hours` əl ilə də dəyişə bilər).
 
 ## 6. Sinxronizasiya axını (vacib — dəyişməzdən əvvəl başa düş)
+
+Aşağıdakı v1 axınıdır (`public/app.js`). v2 klienti (`src/store/dataStore.ts`) eyni modeli saxlayır, fərqləri: IndexedDB keşi (`wfp.v2`, növbə daxil — offline dəyişikliklər itmir), diff yalnız dəyişən sahələri `v` + `base` ilə göndərir, server tranzaksiyada versiyanı yoxlayır (fərqli sahələr → səssiz birləşdirmə, eyni sahə → ziddiyyət dialoqu), redo var. Ətraflı: `docs/ADR-002-data-layer.md`.
 
 1. **Açılış:** `localStorage['wfp.cache.v2']` = `{me, lastTs, state}` dərhal render olunur, sonra `/api/data?since=lastTs`.
 2. **Dəyişiklik** (`commit(label, mutator, logs)`): snapshot → mutator lokal state-i dəyişir → render → `diffOps(prev, state)` yalnız dəyişən sənədlər üçün `upsert`/`delete` əməliyyatları yaradır → növbəyə (`queue`) → `flush()` ardıcıl `POST /api/ops` (1 təkrar cəhd, uğursuzluqda tam yenidən yükləmə).
@@ -155,5 +163,6 @@ Qadağalar:
 - ~~`applyOps` upsert-də tam sənədi əvəz edir~~ — **Mərhələ 1-də düzəldilib** (`updateMask`, SPEC §15.3; test: `tests/server/api.test.ts`).
 - Rollar yoxdur: hər istifadəçi hər şeyi edə, istifadəçi silə bilər.
 - Tarixi snapshot yoxdur → trend qrafikləri mümkün deyil.
+- v2-də brauzerdə iki istifadəçi ziddiyyəti e2e-si redaktə UI-ı ilə (Mərhələ 3) əlavə olunmalıdır; indi `tests/server/sync.test.ts`-dədir.
 - Data keyfiyyəti: ad dublikatları (Farida/Fəridə, Kamila/Kamilə), təkrar sətir (`B-1770271295121` = `B-44`), id-siz sətir (`P-x71`), `P-29`-da saat uyğunsuzluğu — ətraflı `docs/CONTEXT.md`.
 - Bütün bunlar `SPEC.md`-də həll olunur.
