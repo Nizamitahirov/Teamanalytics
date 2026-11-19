@@ -1,4 +1,4 @@
-import { applyOps, replaceAll } from '../lib/sheets.js';
+import { applyOps } from '../lib/firestore.js';
 import { requireUser, send, body, fail } from '../lib/http.js';
 
 export default async function handler(req, res) {
@@ -7,8 +7,8 @@ export default async function handler(req, res) {
   if (!user) return;
   try {
     const b = await body(req);
-    if (b.replace) await replaceAll(b.replace, user);
     const ops = Array.isArray(b.ops) ? b.ops : [];
+    if (ops.length > 3000) return send(res, 413, { error: 'Bir dəfədə çox sayda dəyişiklik' });
     if (ops.length) await applyOps(ops, user);
     send(res, 200, { ok: true });
   } catch (e) { fail(res, e); }

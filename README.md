@@ -1,6 +1,6 @@
 # Workforce Planning — Əmək Münasibətləri
 
-Şöbənin proseslərini, tapşırıqlarını və iş yükünü idarə etmək üçün veb platforma. Vercel-də işləyir, məlumatlar Google Sheet-də saxlanır, giriş ad və parolla olur.
+Şöbənin proseslərini, tapşırıqlarını və iş yükünü idarə etmək üçün veb platforma. Vercel-də işləyir, məlumatlar Firebase Firestore-da saxlanır, giriş ad və parolla olur.
 
 ## İmkanlar
 
@@ -12,48 +12,35 @@
 
 ## Necə sürətli işləyir
 
-- Dəyişiklik ekranda **dərhal** görünür. Sheet-ə arxa planda yazılır. Yan paneldə "Saxlanır… / Sinxron" göstərilir.
-- Server Google Sheets API ilə birbaşa işləyir (Apps Script yoxdur). Hər dəyişiklik bir sorğu ilə gedir və yalnız dəyişən sətirlərə yazılır, ona görə başqalarının dəyişiklikləri üzərinə yazılmır.
-- Başqalarının dəyişiklikləri hər 20 saniyədə avtomatik gəlir. ⟳ düyməsi dərhal yeniləyir.
-- Sheet-də birbaşa düzəliş etmək olar: başlıq sətrinə toxunmayın. Öz əlavə sütunlarınız saxlanılır.
+- Dəyişiklik ekranda **dərhal** görünür, bazaya arxa planda yazılır (yan paneldə "Saxlanır… / Sinxron").
+- Hər 10 saniyədə yalnız **bir kiçik sorğu** gedir: "son dəyişiklikdən sonra nə dəyişib?". Dəyişiklik yoxdursa, heç nə yüklənmir. Varsa, yalnız dəyişən tapşırıqlar gəlir.
+- Brauzer son nüsxəni yadda saxlayır: səhifə dərhal açılır, sonra yalnız fərq yüklənir.
+- Firestore-un pulsuz limiti (gündə 50 000 oxuma, 20 000 yazma) bu həcm üçün kifayətdir.
 
 ---
 
-## Quraşdırma (bir dəfəlik, ~20 dəqiqə)
+## Quraşdırma
 
-### 1. Google Sheet və service account
+Firebase layihəsi (`worforce-74ddf`) və Firestore bazası artıq yaradılıb. Firestore qaydalarını dəyişmək, Firebase Authentication-ı açmaq lazım **deyil**: brauzer bazaya birbaşa qoşulmur, bütün sorğular Vercel serverindən service account ilə gedir.
 
-1. Yeni **boş Google Sheet** yaradın (məs. "Workforce Planning DB"). Ünvandakı ID-ni kopyalayın:
-   `https://docs.google.com/spreadsheets/d/`**`BU_HİSSƏ`**`/edit` → bu **SHEET_ID**-dir.
-2. [console.cloud.google.com](https://console.cloud.google.com) → yeni layihə yaradın (məs. "workforce-planning").
-3. **APIs & Services → Library → "Google Sheets API" → Enable**.
-4. **APIs & Services → Credentials → Create credentials → Service account**. Ad verin, rol seçmək lazım deyil → **Done**.
-5. Yaranan service account-a klikləyin → **Keys → Add key → Create new key → JSON**. Fayl yüklənəcək. Onu heç kimə göndərməyin və repo-ya qoymayın.
-6. JSON faylda iki dəyər lazımdır: `client_email` və `private_key`.
-7. Google Sheet-də **Share** düyməsini basın → `client_email`-i yazın → **Editor** → **Send**.
+### Vercel mühit dəyişənləri
 
-> Şirkətinizin Google Workspace-i xarici service account ilə paylaşmağa icazə vermirsə, bu addımda xəta çıxacaq. Onda IT-dən icazə istəyin və ya Sheet-i şəxsi Google hesabında yaradın.
-
-### 2. Vercel
-
-1. [vercel.com](https://vercel.com) → **Add New → Project** → GitHub-dan **Teamanalytics** repo-nu seçin → **Import**.
-2. *Framework Preset*: **Other**. Qalan ayarlara toxunmayın.
-3. **Environment Variables** bölməsinə bunları əlavə edin:
+Vercel → layihə → **Settings → Environment Variables**. Hər birində **Production, Preview, Development** seçili olsun.
 
 | Ad | Dəyər |
 |---|---|
-| `SHEET_ID` | 1-ci addımdakı Sheet ID |
-| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | JSON-dakı `client_email` |
-| `GOOGLE_PRIVATE_KEY` | JSON-dakı `private_key` — `-----BEGIN PRIVATE KEY-----` ilə başlayan bütün mətn, dırnaqsız |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase-dən yüklənən service account JSON faylının **bütün məzmunu** (`{` ilə başlayıb `}` ilə bitən) |
 | `AUTH_USERS` | İstifadəçilər: `ad:parol`, vergüllə ayrılır. Məs.: `nizami:Güclü-Parol-1,aysel:Başqa-Parol-2` |
-| `AUTH_SECRET` | Ən azı 32 simvolluq təsadüfi söz (sessiyanı imzalamaq üçün). Parol menecerinin generatoru ilə yaradın |
+| `AUTH_SECRET` | Ən azı 32 simvolluq təsadüfi söz (sessiyanı imzalamaq üçün) |
+| `FIRESTORE_DATABASE` | *İstəyə bağlı.* Firestore bazasının ID-si `(default)` deyilsə |
 
-4. **Deploy**. 1 dəqiqədən sonra sayt `https://<layihə>.vercel.app` ünvanında açılır.
-5. Sayta daxil olun → "Google Sheet boşdur" bannerində **İlkin məlumatları yüklə**. 341 tapşırıq və 23 əməkdaş Sheet-ə yazılır. Vərəqlər (Tasks, Employees, Log, Settings) avtomatik yaradılır.
+Sonra **Deployments → son deploy → ⋯ → Redeploy**. Sayta daxil olun → "Baza boşdur" bannerində **İlkin məlumatları yüklə**.
+
+> Service account JSON faylı layihəyə tam giriş verir: onu GitHub-a yükləməyin, mesajla göndərməyin. Fayl başqasına düşübsə, Firebase → Project settings → Service accounts → Google Cloud-da həmin açarı silib yenisini yaradın və Vercel-də dəyişəni yeniləyin.
 
 ### İstifadəçi əlavə etmək / parolu dəyişmək
 
-Vercel → layihə → **Settings → Environment Variables** → `AUTH_USERS`-i dəyişin → **Deployments → son deploy → Redeploy**. Siyahıdan çıxarılan istifadəçinin sessiyası dərhal etibarsız olur.
+`AUTH_USERS`-i dəyişin → **Redeploy**. Siyahıdan çıxarılan istifadəçinin sessiyası dərhal etibarsız olur.
 
 ---
 
@@ -61,16 +48,16 @@ Vercel → layihə → **Settings → Environment Variables** → `AUTH_USERS`-i
 
 ```
 public/            Səhifələr (index.html, login.html, app.js, styles.css)
-api/               Server funksiyaları: login, logout, data, ops, seed
+api/               Server funksiyaları: login, logout, data, ops, seed, log
 lib/auth.js        Giriş və sessiya (HMAC imzalı cookie, 12 saat)
-lib/sheets.js      Google Sheets API (service account)
+lib/firestore.js   Firestore REST API (service account), dəyişiklik izləmə
 middleware.js      Giriş etməmiş istifadəçini login səhifəsinə yönləndirir
 data/seed.json     İlkin məlumatlar (Birbank 266 + Pashapay 75) — ictimai deyil
 ```
 
 ## Hesablama qaydaları
 
-- **Cari icraçı** = "owner_after", boşdursa "owner_before".
+- **Cari icraçı** = yeni icraçı, boşdursa ilkin icraçı.
 - **Status**: Ləğv · Transfer (ilkin və yeni icraçı fərqlidir) · Yeni (ilkin icraçı yoxdur) · Mövcud.
 - **Yük** = aktiv tapşırıqların illik saatı ÷ (norma × ştat). Ləğv edilmiş işlər daxil deyil.
 - **Lazım olan ştat** = aktiv illik saat ÷ norma. **Mövcud ştat** = tapşırığı olan fərdi əməkdaşların ştatlarının cəmi.

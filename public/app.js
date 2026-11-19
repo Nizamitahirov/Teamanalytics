@@ -29,6 +29,7 @@ const fmtH = (n) => fmt(n, Math.abs(n) < 100 && n % 1 ? 1 : 0);
 const pct = (n) => `${fmt(n * 100, 0)}%`;
 const nowIso = () => new Date().toISOString();
 const uid = () => 'T-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const logId = () => 'L-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 const num = (v) => { if (v === '' || v == null) return null; const n = Number(String(v).replace(',', '.')); return isFinite(n) ? n : null; };
 const sortAz = (a, b) => String(a).localeCompare(String(b), 'az');
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -98,24 +99,42 @@ function normalizeEmployee(e) {
   };
 }
 
-/* ---------------- persistence: server (Google Sheet) + local cache ---------------- */
+/* ---------------- persistence: server (Firebase Firestore) + local cache ---------------- */
 const CACHE_KEY = 'wfp.cache.v2';
-const POLL_MS = 20000;
+const POLL_MS = 10000;
 let me = '';
 let queue = [];            // göndərilməmiş əməliyyat partiyaları
 let sending = false;
-let lastServerHash = '';
+let lastTs = null;          // serverdəki son dəyişikliyin vaxtı — növbəti sorğu yalnız bundan sonrakıları gətirir
 
 function emptyState() { return { tasks: [], employees: [], log: [], settings: { ...DEFAULT_SETTINGS } }; }
 function applyServerData(d) {
   state.tasks = (d.tasks || []).map(normalizeTask);
   state.employees = (d.employees || []).map(normalizeEmployee).filter(e => e.name);
   state.log = d.log || [];
-  state.settings = { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.entries(d.settings || {}).map(([k, v]) => [k, num(v) ?? v])) };
+  applySettings(d.settings);
 }
-const dataHash = (d) => JSON.stringify([d.tasks, d.employees, d.settings, (d.log || []).length]);
+function applySettings(s) {
+  const next = { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.entries(s || {}).map(([k, v]) => [k, num(v) ?? v])) };
+  const changed = JSON.stringify(next) !== JSON.stringify(state.settings);
+  state.settings = next;
+  return changed;
+}
+function applyDelta(d) {
+  const tasks = new Map(state.tasks.map(t => [t.id, t]));
+  (d.tasks || []).forEach(t => { if (t._deleted) tasks.delete(t.id); else tasks.set(t.id, normalizeTask(t)); });
+  state.tasks = [...tasks.values()];
+  const emps = new Map(state.employees.map(e => [e.name, e]));
+  (d.employees || []).forEach(e => { if (e._deleted) emps.delete(e.name); else emps.set(e.name, normalizeEmployee(e)); });
+  state.employees = [...emps.values()];
+  const seen = new Set(state.log.map(l => l.id).filter(Boolean));
+  (d.log || []).forEach(l => { if (!seen.has(l.id)) { state.log.push(l); seen.add(l.id); } });
+  state.log.sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+  if (state.log.length > 2000) state.log = state.log.slice(-2000);
+  applySettings(d.settings);
+}
 function saveLocal() {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ me, state })); } catch (e) { /* yer yoxdursa keş vacib deyil */ }
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ me, lastTs, state })); } catch (e) { /* yer yoxdursa keş vacib deyil */ }
 }
 function loadCache() {
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); if (c && c.state) return c; } catch (e) {}
@@ -138,26 +157,26 @@ function setSync(kind, text) {
 }
 function syncIdle() { setSync('ok', `Sinxron · ${new Date().toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })}`); }
 
-async function pull({ silent = false } = {}) {
+async function pull({ silent = false, full = false } = {}) {
   if (!silent) setSync('busy', 'Yüklənir...');
-  const d = await api('/api/data');
+  const since = !full && lastTs && state.tasks.length ? lastTs : null;
+  const d = await api('/api/data' + (since ? `?since=${encodeURIComponent(since)}` : ''));
   me = d.user || me;
-  const h = dataHash(d);
-  // Göndərilməmiş dəyişiklik varsa, serverdən gələni tətbiq etmə (öz dəyişikliyimiz itməsin)
+  // Göndərilməmiş dəyişiklik varsa, serverdən gələni hələ tətbiq etmə (öz dəyişikliyimiz itməsin)
   if (queue.length || sending) return false;
-  const changed = h !== lastServerHash;
-  lastServerHash = h;
-  if (changed) {
-    applyServerData(d);
-    saveLocal();
-    renderAll();
-  }
+  let changed;
+  if (d.full) { applyServerData(d); changed = true; }
+  else if (d.delta) { applyDelta(d); changed = true; }
+  else changed = applySettings(d.settings);
+  lastTs = d.ts || lastTs;
+  saveLocal();
+  if (changed) renderAll();
   $('seedBanner').classList.toggle('hidden', state.tasks.length > 0);
   syncIdle();
   return changed;
 }
 
-// Əvvəlki və indiki vəziyyət arasındakı fərqi Sheet əməliyyatlarına çevirir
+// Əvvəlki və indiki vəziyyət arasındakı fərqi baza əməliyyatlarına çevirir
 const TASK_FIELDS = ['id', 'company', 'process', 'category', 'task', 'description', 'owner_before', 'owner_after', 'min_per_key', 'annual_freq', 'unit', 'hours', 'after_opt', 'is_cancelled', 'updated_at'];
 const EMP_FIELDS = ['name', 'company', 'activity', 'fte', 'is_group', 'active'];
 const pick = (o, f) => Object.fromEntries(f.map(k => [k, o[k] ?? null]));
@@ -195,15 +214,13 @@ async function flush() {
     queue.shift();
     sending = false;
     if (queue.length) return flush();
-    lastServerHash = ''; // növbəti pull mütləq yeniləsin (log, updated_by)
     syncIdle();
   } catch (e) {
     console.error(e);
     sending = false; queue = [];
     setSync('err', 'Yazılmadı');
-    toast('Sheet-ə yazmaq alınmadı: ' + e.message + '. Son məlumatlar Sheet-dən yenidən yüklənir.');
-    lastServerHash = '';
-    pull().catch(() => {});
+    toast('Bazaya yazmaq alınmadı: ' + e.message + '. Son məlumatlar bazadan yenidən yüklənir.');
+    pull({ full: true }).catch(() => {});
   }
 }
 
@@ -215,7 +232,7 @@ function commit(label, mutator, logEntries) {
   if (undoStack.length > 30) undoStack.shift();
   mutator();
   const ts = nowIso();
-  const logs = (logEntries || []).map(l => ({ ts, user: me, comment: '', from: '', to: '', task_id: '', task_label: '', ...l }));
+  const logs = (logEntries || []).map(l => ({ id: logId(), ts, user: me, comment: '', from: '', to: '', task_id: '', task_label: '', ...l }));
   state.log.push(...logs);
   saveLocal(); renderAll();
   enqueue(prev, logs.map(({ user, ...rest }) => rest));
@@ -229,10 +246,10 @@ function undo() {
   if (!u) return;
   const prev = clone({ tasks: state.tasks, employees: state.employees, settings: state.settings });
   state.tasks = u.snap.tasks; state.employees = u.snap.employees; state.settings = u.snap.settings;
-  const log = { ts: nowIso(), user: me, action: 'Geri alma', task_label: u.label, comment: '', from: '', to: '', task_id: '' };
+  const log = { id: logId(), ts: nowIso(), user: me, action: 'Geri alma', task_label: u.label, comment: '', from: '', to: '', task_id: '' };
   state.log.push(log);
   saveLocal(); renderAll();
-  enqueue(prev, [{ action: log.action, task_label: log.task_label }]);
+  enqueue(prev, [{ id: log.id, ts: log.ts, action: log.action, task_label: log.task_label }]);
   toast(`Geri alındı: ${u.label}`);
 }
 
@@ -650,14 +667,14 @@ function renderLog() {
       <div><b><span class="log-ic"><i class="fas ${icon[l.action] || 'fa-circle'}"></i></span>${esc(l.action)}</b></div>
       <div>${esc(l.task_label)}${l.from || l.to ? `<div class="muted">${esc(l.from)}${l.to ? ' → ' + esc(l.to) : ''}</div>` : ''}${l.comment ? `<div class="hint">“${esc(l.comment)}”</div>` : ''}</div>
       <div class="muted" style="text-align:right"><i class="fas fa-user" style="font-size:.7rem"></i> ${esc(l.user || '—')}</div>
-    </div>`).join('') + (list.length > 500 ? `<div class="hint" style="padding-top:10px">Son 500 qeyd göstərilir. Hamısı Excel export-da və Sheet-in “Log” vərəqindədir.</div>` : '')
+    </div>`).join('') + (list.length > 500 ? `<div class="hint" style="padding-top:10px">Son 500 qeyd göstərilir. Bütün jurnal Excel export-dadır.</div>` : '')
     : '<div class="empty">Hələ əməliyyat yoxdur. Ötürmə, ləğv və düzəlişlər burada görünəcək.</div>';
 }
 
 /* ---------------- render: settings ---------------- */
 function renderSettings() {
   $('sNorm').value = state.settings.norm; $('sWarn').value = state.settings.warn;
-  $('dataInfo').innerHTML = `Sheet-də <b>${state.tasks.length}</b> tapşırıq, <b>${state.employees.length}</b> əməkdaş, <b>${state.log.length}</b> jurnal qeydi var.`;
+  $('dataInfo').innerHTML = `Bazada <b>${state.tasks.length}</b> tapşırıq, <b>${state.employees.length}</b> əməkdaş, <b>${state.log.length}</b> son jurnal qeydi yüklənib.`;
 }
 
 /* ---------------- modals ---------------- */
@@ -868,7 +885,9 @@ async function exportExcel() {
     'Əvvəl (saat)': +r.before.toFixed(2), 'İndi (saat)': +r.hours.toFixed(2), 'Norma (saat)': r.isGroup ? '' : r.cap, 'Boş tutum (saat)': r.isGroup ? '' : +r.free.toFixed(2), 'Yük (%)': r.isGroup ? '' : +(r.load * 100).toFixed(1),
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(loads), 'Yük analizi');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.log.map(l => ({ 'Tarix': l.ts, 'İstifadəçi': l.user || '', 'Əməliyyat': l.action, 'Tapşırıq': l.task_label, 'id': l.task_id, 'Kimdən': l.from, 'Kimə': l.to, 'Şərh': l.comment }))), 'Jurnal');
+  let fullLog = state.log;
+  try { fullLog = (await api('/api/log')).log; } catch (e) { toast('Tam jurnal yüklənmədi, son qeydlər export edilir.'); }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fullLog.map(l => ({ 'Tarix': l.ts, 'İstifadəçi': l.user || '', 'Əməliyyat': l.action, 'Tapşırıq': l.task_label, 'id': l.task_id, 'Kimdən': l.from, 'Kimə': l.to, 'Şərh': l.comment }))), 'Jurnal');
   XLSX.writeFile(wb, `workforce-planning-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 function exportTemplate() {
@@ -899,7 +918,7 @@ function parseRows(rows) {
 }
 
 async function handleImport(file) {
-  // Ən son vəziyyətlə müqayisə etmək üçün əvvəlcə Sheet-dən yenilə
+  // Ən son vəziyyətlə müqayisə etmək üçün əvvəlcə bazadan yenilə
   await pull({ silent: true }).catch(() => {});
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array' });
@@ -977,10 +996,10 @@ function bind() {
     const warn = w && w > 0 && w <= 100 ? w : 85;
     commit('Norma yeniləndi', () => { state.settings.norm = n; state.settings.warn = warn; }, [{ action: 'Ayarlar', task_label: `Norma: ${n} saat, yüksək yük həddi: ${warn}%` }]);
   };
-  $('refreshBtn').onclick = () => { lastServerHash = ''; pull().then(() => toast('Sheet-dən yeniləndi.')).catch(e => { setSync('err', 'Xəta'); toast(e.message); }); };
+  $('refreshBtn').onclick = () => { pull({ full: true }).then(() => toast('Bazadan yeniləndi.')).catch(e => { setSync('err', 'Xəta'); toast(e.message); }); };
   $('seedBtn').onclick = async () => {
     $('seedBtn').disabled = true;
-    try { await api('/api/seed', { method: 'POST' }); lastServerHash = ''; await pull(); toast('İlkin məlumatlar Sheet-ə yazıldı.'); }
+    try { await api('/api/seed', { method: 'POST' }); await pull({ full: true }); toast('İlkin məlumatlar bazaya yazıldı.'); }
     catch (e) { toast(e.message); }
     $('seedBtn').disabled = false;
   };
@@ -997,12 +1016,12 @@ async function init() {
   state = emptyState();
   const cache = loadCache();
   bind();
-  if (cache) { me = cache.me; state = cache.state; state.settings = { ...DEFAULT_SETTINGS, ...state.settings }; showApp(); renderAll(); }
+  if (cache) { me = cache.me; lastTs = cache.lastTs || null; state = cache.state; state.settings = { ...DEFAULT_SETTINGS, ...state.settings }; showApp(); renderAll(); }
   try { await pull({ silent: !!cache }); showApp(); }
   catch (e) {
     console.error(e); setSync('err', 'Bağlantı xətası');
-    if (!cache) $('loading').innerHTML = `<div class="empty"><b>Sheet-ə qoşulmaq alınmadı</b><br>${esc(e.message)}</div>`;
-    else toast('Sheet-ə qoşulmaq alınmadı, son yüklənmiş nüsxə göstərilir: ' + e.message);
+    if (!cache) $('loading').innerHTML = `<div class="empty"><b>Bazaya qoşulmaq alınmadı</b><br>${esc(e.message)}</div>`;
+    else toast('Bazaya qoşulmaq alınmadı, son yüklənmiş nüsxə göstərilir: ' + e.message);
   }
 }
 function showApp() {

@@ -31,7 +31,7 @@
     <div class="sync-pill" id="syncPill"><i class="fas fa-circle-notch fa-spin"></i> Yüklənir...</div>
     <div class="user-box">
       <div class="av" id="userAv">·</div>
-      <div><b id="userName">—</b><small>Google Sheet</small></div>
+      <div><b id="userName">—</b><small>Firebase</small></div>
       <button id="logoutBtn" title="Çıxış"><i class="fas fa-arrow-right-from-bracket"></i></button>
     </div>
   </div>
@@ -43,7 +43,7 @@
       <h1 id="pageTitle">İş yükü və ştat planlaması</h1>
       <div class="topbar-actions">
         <button class="btn btn-ghost icon-btn" id="undoBtn" title="Son əməliyyatı geri al" disabled><i class="fas fa-rotate-left"></i></button>
-        <button class="btn btn-ghost icon-btn" id="refreshBtn" title="Sheet-dən yenilə"><i class="fas fa-arrows-rotate"></i></button>
+        <button class="btn btn-ghost icon-btn" id="refreshBtn" title="Bazadan yenilə"><i class="fas fa-arrows-rotate"></i></button>
         <button class="btn btn-outline" id="importBtn"><i class="fas fa-file-arrow-up"></i> <span>Import</span></button>
         <button class="btn btn-dark" id="exportBtn"><i class="fas fa-file-excel"></i> <span>Excel</span></button>
         <button class="btn btn-ghost icon-btn mobile-only" id="logoutBtn2" title="Çıxış"><i class="fas fa-arrow-right-from-bracket"></i></button>
@@ -53,9 +53,9 @@
   </header>
 
   <main class="content">
-    <div id="loading" class="loading"><div class="spinner"></div><div>Məlumatlar Google Sheet-dən yüklənir...</div></div>
+    <div id="loading" class="loading"><div class="spinner"></div><div>Məlumatlar yüklənir...</div></div>
     <div id="seedBanner" class="banner hidden">
-      <div><b>Google Sheet boşdur</b><p>Birbank (266) və Pashapay (75) tapşırıqlarını Sheet-ə yazmaq üçün düyməni basın.</p></div>
+      <div><b>Baza boşdur</b><p>Birbank (266) və Pashapay (75) tapşırıqlarını bazaya yazmaq üçün düyməni basın.</p></div>
       <button class="btn btn-primary" id="seedBtn"><i class="fas fa-database"></i> İlkin məlumatları yüklə</button>
     </div>
 
@@ -175,19 +175,19 @@
             <div class="form-grid">
               <div class="field"><label>İllik norma (saat / 1 ştat)</label><input class="input" type="number" id="sNorm" min="1"></div>
               <div class="field"><label>Yüksək yük həddi (%)</label><input class="input" type="number" id="sWarn" min="1" max="100"></div>
-              <div class="full hint">2026-cı il üçün ölkə üzrə norma 1922 saatdır. Yarım ştat işləyən əməkdaşın profilində ştatı 0.5 yazın, onda onun norması 961 saat olur. Bu ayarlar Sheet-də saxlanır və hamı üçün eynidir.</div>
+              <div class="full hint">2026-cı il üçün ölkə üzrə norma 1922 saatdır. Yarım ştat işləyən əməkdaşın profilində ştatı 0.5 yazın, onda onun norması 961 saat olur. Bu ayarlar bazada saxlanır və hamı üçün eynidir.</div>
             </div>
             <div style="margin-top:14px"><button class="btn btn-primary" id="saveNormBtn"><i class="fas fa-check"></i> Yadda saxla</button></div>
           </div>
         </div>
         <div class="card">
-          <div class="card-head"><h3>Google Sheet</h3></div>
+          <div class="card-head"><h3>Məlumat bazası (Firebase)</h3></div>
           <div class="card-body">
             <p class="hint" style="margin-top:0" id="dataInfo"></p>
             <ul class="steps">
-              <li>Dəyişikliklər ekranda dərhal görünür, Sheet-ə arxa planda yazılır.</li>
-              <li>Başqalarının dəyişiklikləri hər 20 saniyədən bir avtomatik gəlir. <i class="fas fa-arrows-rotate"></i> düyməsi dərhal yeniləyir.</li>
-              <li>Sheet-də birbaşa düzəliş etmək olar: başlıq sətrinə toxunmayın, əlavə sütunlar saxlanılır.</li>
+              <li>Dəyişikliklər ekranda dərhal görünür, bazaya arxa planda yazılır.</li>
+              <li>Başqalarının dəyişiklikləri hər 10 saniyədə avtomatik gəlir. <i class="fas fa-arrows-rotate"></i> düyməsi dərhal yeniləyir.</li>
+              <li>Cədvəl şəklində baxmaq üçün <b>Excel</b> düyməsindən istifadə edin.</li>
             </ul>
           </div>
         </div>
