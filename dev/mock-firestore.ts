@@ -13,7 +13,7 @@ type Fields = Record<string, Value>;
 type Write = {
   update?: { name: string; fields?: Fields };
   updateMask?: { fieldPaths: string[] };
-  updateTransforms?: { fieldPath: string }[];
+  updateTransforms?: { fieldPath: string; increment?: { integerValue: string } }[];
   delete?: string;
 };
 
@@ -37,6 +37,10 @@ export async function startMockFirestore({ port = 0, latencyMs = 0 } = {}): Prom
   const docs = new Map<string, Fields>();
   const calls: string[] = [];
   let tick = 0;
+  let txSeq = 0;
+  // Tranzaksiya: oxunan sənədlərin oxunma anındakı _ts-i; commit zamanı dəyişibsə → 409 ABORTED (real Firestore kimi)
+  const txReads = new Map<string, Map<string, string>>();
+  const verOf = (name: string) => tsOf(docs.get(name)?._ts) || 'absent';
   const nowTs = () => {
     const d = new Date();
     const us = String(d.getMilliseconds() * 1000 + (tick++ % 1000)).padStart(6, '0');
@@ -58,7 +62,33 @@ export async function startMockFirestore({ port = 0, latencyMs = 0 } = {}): Prom
     if (latencyMs) await new Promise((r) => setTimeout(r, latencyMs));
     const docOut = (name: string) => ({ name, fields: docs.get(name) });
 
+    if (p === ROOTP + ':beginTransaction') {
+      const id = Buffer.from(`tx-${++txSeq}`).toString('base64');
+      txReads.set(id, new Map());
+      return out({ transaction: id });
+    }
+    if (p === ROOTP + ':rollback') {
+      txReads.delete(j.transaction);
+      return out({});
+    }
+    if (p === ROOTP + ':batchGet') {
+      const reads = j.transaction ? txReads.get(j.transaction) : undefined;
+      const res = (j.documents as string[]).map((n) => {
+        const name = `${DOCS_PREFIX}/${short(n)}`;
+        reads?.set(name, verOf(name));
+        return docs.has(name) ? { found: docOut(name), readTime: nowTs() } : { missing: n, readTime: nowTs() };
+      });
+      return out(res);
+    }
     if (p === ROOTP + ':commit') {
+      if (j.transaction) {
+        const reads = txReads.get(j.transaction);
+        txReads.delete(j.transaction);
+        if (!reads) return out({ error: { code: 400, message: 'Transaction not found', status: 'INVALID_ARGUMENT' } }, 400);
+        for (const [name, v] of reads)
+          if (verOf(name) !== v)
+            return out({ error: { code: 409, message: 'Transaction lock timeout / contention', status: 'ABORTED' } }, 409);
+      }
       const ts = nowTs();
       for (const w of j.writes as Write[]) {
         if (w.delete) {
@@ -77,7 +107,11 @@ export async function startMockFirestore({ port = 0, latencyMs = 0 } = {}): Prom
           }
         } else fields = { ...incoming };
         (w.updateTransforms || []).forEach((t) => {
-          fields[t.fieldPath] = { timestampValue: ts };
+          if (t.increment) {
+            const prev = fields[t.fieldPath];
+            const n = prev && 'integerValue' in prev ? Number(prev.integerValue) : 0;
+            fields[t.fieldPath] = { integerValue: String(n + Number(t.increment.integerValue)) };
+          } else fields[t.fieldPath] = { timestampValue: ts };
         });
         docs.set(name, fields);
       }

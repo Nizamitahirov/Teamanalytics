@@ -24,7 +24,10 @@ describe('buildWrites', () => {
     );
     expect(w.update.fields.updated_by).toEqual({ stringValue: 'Ecosystem' });
     expect(w.update.fields.updated_at).toEqual({ stringValue: NOW });
-    expect(w.updateTransforms).toEqual([{ fieldPath: '_ts', setToServerValue: 'REQUEST_TIME' }]);
+    expect(w.updateTransforms).toEqual([
+      { fieldPath: '_ts', setToServerValue: 'REQUEST_TIME' },
+      { fieldPath: '_v', increment: { integerValue: '1' } },
+    ]);
     expect(meta.update.name).toMatch(/meta\/main$/);
     expect(meta.updateMask?.fieldPaths).toEqual([]);
   });

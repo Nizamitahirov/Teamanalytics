@@ -1,0 +1,31 @@
+.lead {
+  margin: 0 0 var(--sp-4);
+  color: var(--text-2);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-13);
+}
+.table th,
+.table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.table th {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.diff td:not(:first-child) {
+  font-weight: 600;
+}
+.more {
+  margin: var(--sp-3) 0 0;
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
