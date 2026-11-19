@@ -9,11 +9,10 @@
 (() => {
 'use strict';
 
-const LS_KEY = 'wfp.state.v1';
 const ACT_PROJECT = 'Project and AdHoc based';
 const ACT_ADMIN = 'Administrativ';
 const STATUSES = ['Mövcud', 'Yeni', 'Transfer', 'Ləğv'];
-const DEFAULT_SETTINGS = { norm: 1922, warn: 85, scriptUrl: '', token: '' };
+const DEFAULT_SETTINGS = { norm: 1922, warn: 85 };
 
 let state = null;          // { tasks, employees, log, settings, version }
 let undoStack = [];
@@ -85,6 +84,7 @@ function normalizeTask(t) {
     after_opt: num(t.after_opt),
     is_cancelled: t.is_cancelled === true || /^(true|bəli|1|yes)$/i.test(String(t.is_cancelled ?? '').trim()),
     updated_at: t.updated_at || '',
+    updated_by: t.updated_by || '',
   };
 }
 function normalizeEmployee(e) {
@@ -98,105 +98,127 @@ function normalizeEmployee(e) {
   };
 }
 
-/* ---------------- persistence ---------------- */
-function seedState() {
-  const s = window.SEED_DATA || { tasks: [], employees: [] };
-  return { tasks: s.tasks.map(normalizeTask), employees: s.employees.map(normalizeEmployee), log: [], settings: { ...DEFAULT_SETTINGS }, version: null };
+/* ---------------- persistence: server (Google Sheet) + local cache ---------------- */
+const CACHE_KEY = 'wfp.cache.v2';
+const POLL_MS = 20000;
+let me = '';
+let queue = [];            // göndərilməmiş əməliyyat partiyaları
+let sending = false;
+let lastServerHash = '';
+
+function emptyState() { return { tasks: [], employees: [], log: [], settings: { ...DEFAULT_SETTINGS } }; }
+function applyServerData(d) {
+  state.tasks = (d.tasks || []).map(normalizeTask);
+  state.employees = (d.employees || []).map(normalizeEmployee).filter(e => e.name);
+  state.log = d.log || [];
+  state.settings = { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.entries(d.settings || {}).map(([k, v]) => [k, num(v) ?? v])) };
 }
-function loadLocal() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const s = JSON.parse(raw);
-      s.settings = { ...DEFAULT_SETTINGS, ...(s.settings || {}) };
-      s.tasks = (s.tasks || []).map(normalizeTask);
-      s.employees = (s.employees || []).map(normalizeEmployee);
-      s.log = s.log || [];
-      return s;
-    }
-  } catch (e) { console.warn('localStorage oxunmadı', e); }
-  return seedState();
-}
+const dataHash = (d) => JSON.stringify([d.tasks, d.employees, d.settings, (d.log || []).length]);
 function saveLocal() {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { console.warn('localStorage yazılmadı', e); }
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ me, state })); } catch (e) { /* yer yoxdursa keş vacib deyil */ }
+}
+function loadCache() {
+  try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); if (c && c.state) return c; } catch (e) {}
+  return null;
 }
 
-/* ---- Google Apps Script sync ---- */
-let pushTimer = null, pushing = false, pushAgain = false;
+async function api(path, opts = {}) {
+  const res = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (res.status === 401) { localStorage.removeItem(CACHE_KEY); location.href = '/login.html'; throw new Error('Sessiya bitib'); }
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error || `Server xətası (${res.status})`);
+  return j;
+}
+
 function setSync(kind, text) {
   const p = $('syncPill');
   p.className = 'sync-pill ' + (kind || '');
-  const icon = { ok: 'fa-cloud', busy: 'fa-spinner fa-spin', err: 'fa-triangle-exclamation', '': 'fa-laptop' }[kind || ''];
+  const icon = { ok: 'fa-circle-check', busy: 'fa-circle-notch fa-spin', err: 'fa-triangle-exclamation' }[kind] || 'fa-circle';
   p.innerHTML = `<i class="fas ${icon}"></i> ${esc(text)}`;
 }
-function remoteOn() { return !!state.settings.scriptUrl; }
-async function remoteRead() {
-  const u = new URL(state.settings.scriptUrl);
-  u.searchParams.set('action', 'read');
-  if (state.settings.token) u.searchParams.set('token', state.settings.token);
-  const res = await fetch(u.toString());
-  const j = await res.json();
-  if (j.status !== 'success') throw new Error(j.message || 'Oxuma xətası');
-  return j;
+function syncIdle() { setSync('ok', `Sinxron · ${new Date().toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })}`); }
+
+async function pull({ silent = false } = {}) {
+  if (!silent) setSync('busy', 'Yüklənir...');
+  const d = await api('/api/data');
+  me = d.user || me;
+  const h = dataHash(d);
+  // Göndərilməmiş dəyişiklik varsa, serverdən gələni tətbiq etmə (öz dəyişikliyimiz itməsin)
+  if (queue.length || sending) return false;
+  const changed = h !== lastServerHash;
+  lastServerHash = h;
+  if (changed) {
+    applyServerData(d);
+    saveLocal();
+    renderAll();
+  }
+  $('seedBanner').classList.toggle('hidden', state.tasks.length > 0);
+  syncIdle();
+  return changed;
 }
-async function remoteWrite(force) {
-  const body = {
-    action: 'saveAll', token: state.settings.token, baseVersion: force ? null : state.version,
-    data: { tasks: state.tasks, employees: state.employees, log: state.log.slice(-2000) },
-  };
-  const res = await fetch(state.settings.scriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
-  return res.json();
+
+// Əvvəlki və indiki vəziyyət arasındakı fərqi Sheet əməliyyatlarına çevirir
+const TASK_FIELDS = ['id', 'company', 'process', 'category', 'task', 'description', 'owner_before', 'owner_after', 'min_per_key', 'annual_freq', 'unit', 'hours', 'after_opt', 'is_cancelled', 'updated_at'];
+const EMP_FIELDS = ['name', 'company', 'activity', 'fte', 'is_group', 'active'];
+const pick = (o, f) => Object.fromEntries(f.map(k => [k, o[k] ?? null]));
+function diffOps(prev, cur) {
+  const ops = [];
+  const pT = new Map(prev.tasks.map(t => [t.id, JSON.stringify(pick(t, TASK_FIELDS))]));
+  const cT = new Set();
+  cur.tasks.forEach(t => { cT.add(t.id); const j = JSON.stringify(pick(t, TASK_FIELDS)); if (pT.get(t.id) !== j) ops.push({ t: 'upsert', table: 'Tasks', row: pick(t, TASK_FIELDS) }); });
+  prev.tasks.forEach(t => { if (!cT.has(t.id)) ops.push({ t: 'delete', table: 'Tasks', key: t.id }); });
+  const pE = new Map(prev.employees.map(e => [e.name, JSON.stringify(pick(e, EMP_FIELDS))]));
+  const cE = new Set();
+  cur.employees.forEach(e => { cE.add(e.name); const j = JSON.stringify(pick(e, EMP_FIELDS)); if (pE.get(e.name) !== j) ops.push({ t: 'upsert', table: 'Employees', row: pick(e, EMP_FIELDS) }); });
+  prev.employees.forEach(e => { if (!cE.has(e.name)) ops.push({ t: 'delete', table: 'Employees', key: e.name }); });
+  Object.keys(cur.settings).forEach(k => { if (k in DEFAULT_SETTINGS && cur.settings[k] !== prev.settings[k]) ops.push({ t: 'upsert', table: 'Settings', row: { key: k, value: cur.settings[k] } }); });
+  return ops;
 }
-function schedulePush() {
-  if (!remoteOn()) return;
-  clearTimeout(pushTimer);
-  setSync('busy', 'Saxlanır...');
-  pushTimer = setTimeout(doPush, 700);
+
+function enqueue(prev, logEntries) {
+  const ops = diffOps(prev, state);
+  const logs = (logEntries || []).map(row => ({ t: 'log', row }));
+  if (!ops.length && !logs.length) return;
+  // Yalnız dəyişən sətirlər göndərilir — başqalarının eyni vaxtda etdiyi dəyişikliklər üzərinə yazılmır
+  const payload = { ops: ops.concat(logs) };
+  queue.push(payload);
+  flush();
 }
-async function doPush() {
-  if (pushing) { pushAgain = true; return; }
-  pushing = true;
+async function flush() {
+  if (sending || !queue.length) return;
+  sending = true;
+  setSync('busy', `Saxlanır... (${queue.length})`);
+  const payload = queue[0];
   try {
-    const j = await remoteWrite(false);
-    if (j.status === 'success') { state.version = j.version; saveLocal(); setSync('ok', 'Google Sheet'); }
-    else if (j.status === 'conflict') {
-      setSync('err', 'Ziddiyyət');
-      toast('Sheet-də başqa birinin dəyişikliyi var. Son versiya yüklənir; son əməliyyatınızı yenidən edin.');
-      await pullRemote();
-    } else throw new Error(j.message || 'Yazma xətası');
+    try { await api('/api/ops', { method: 'POST', body: JSON.stringify(payload) }); }
+    catch (e) { if (/Sessiya/.test(e.message)) throw e; await new Promise(r => setTimeout(r, 1500)); await api('/api/ops', { method: 'POST', body: JSON.stringify(payload) }); }
+    queue.shift();
+    sending = false;
+    if (queue.length) return flush();
+    lastServerHash = ''; // növbəti pull mütləq yeniləsin (log, updated_by)
+    syncIdle();
   } catch (e) {
-    console.error(e); setSync('err', 'Sinxron xətası');
-    toast('Google Sheet-ə yazmaq alınmadı. Dəyişikliklər bu brauzerdə saxlanılıb.');
-  } finally {
-    pushing = false;
-    if (pushAgain) { pushAgain = false; doPush(); }
+    console.error(e);
+    sending = false; queue = [];
+    setSync('err', 'Yazılmadı');
+    toast('Sheet-ə yazmaq alınmadı: ' + e.message + '. Son məlumatlar Sheet-dən yenidən yüklənir.');
+    lastServerHash = '';
+    pull().catch(() => {});
   }
-}
-async function pullRemote() {
-  setSync('busy', 'Yüklənir...');
-  const j = await remoteRead();
-  const d = j.data || {};
-  if ((d.tasks || []).length) {
-    state.tasks = d.tasks.map(normalizeTask);
-    state.employees = (d.employees || []).map(normalizeEmployee).filter(e => e.name);
-    state.log = d.log || [];
-  }
-  state.version = j.version;
-  saveLocal(); undoStack = [];
-  setSync('ok', 'Google Sheet');
-  renderAll();
-  return (d.tasks || []).length;
 }
 
 /* ---------------- mutations (with undo + log) ---------------- */
 function commit(label, mutator, logEntries) {
-  const entry = { label, snap: clone({ tasks: state.tasks, employees: state.employees, log: state.log }) };
+  const prev = clone({ tasks: state.tasks, employees: state.employees, settings: state.settings });
+  const entry = { label, snap: prev };
   undoStack.push(entry);
   if (undoStack.length > 30) undoStack.shift();
   mutator();
   const ts = nowIso();
-  (logEntries || []).forEach(l => state.log.push({ ts, comment: '', from: '', to: '', task_id: '', task_label: '', ...l }));
-  saveLocal(); schedulePush(); renderAll();
+  const logs = (logEntries || []).map(l => ({ ts, user: me, comment: '', from: '', to: '', task_id: '', task_label: '', ...l }));
+  state.log.push(...logs);
+  saveLocal(); renderAll();
+  enqueue(prev, logs.map(({ user, ...rest }) => rest));
   toast(label, { label: 'Geri al', fn: () => {
     if (undoStack[undoStack.length - 1] === entry) undo();
     else toast('Bu əməliyyatdan sonra başqa dəyişiklik edilib. Yuxarıdakı “Geri al” düyməsi ilə ardıcıl geri qaytarın.');
@@ -205,8 +227,12 @@ function commit(label, mutator, logEntries) {
 function undo() {
   const u = undoStack.pop();
   if (!u) return;
-  state.tasks = u.snap.tasks; state.employees = u.snap.employees; state.log = u.snap.log;
-  saveLocal(); schedulePush(); renderAll();
+  const prev = clone({ tasks: state.tasks, employees: state.employees, settings: state.settings });
+  state.tasks = u.snap.tasks; state.employees = u.snap.employees; state.settings = u.snap.settings;
+  const log = { ts: nowIso(), user: me, action: 'Geri alma', task_label: u.label, comment: '', from: '', to: '', task_id: '' };
+  state.log.push(log);
+  saveLocal(); renderAll();
+  enqueue(prev, [{ action: log.action, task_label: log.task_label }]);
   toast(`Geri alındı: ${u.label}`);
 }
 
@@ -292,6 +318,7 @@ function renderAll() {
   fillSelect($('tOwner'), ownerNames());
   fillSelect($('tStatus'), STATUSES);
   fillSelect($('lAction'), [...new Set(state.log.map(l => l.action))].sort(sortAz));
+  fillSelect($('lUser'), [...new Set(state.log.map(l => l.user).filter(Boolean))].sort(sortAz));
   $('normLabel').textContent = fmt(state.settings.norm);
   $('undoBtn').disabled = !undoStack.length;
   $('undoBtn').title = undoStack.length ? `Geri al: ${undoStack[undoStack.length - 1].label}` : 'Geri alınacaq əməliyyat yoxdur';
@@ -311,9 +338,9 @@ function chart(id, cfg) {
   if (charts[id]) charts[id].destroy();
   charts[id] = new Chart($(id), cfg);
 }
-const gridColor = '#EBECF0', tickColor = '#6B778C';
+const gridColor = '#EFEFF3', tickColor = '#737789';
 if (window.Chart) { Chart.defaults.font.family = 'Inter, system-ui, sans-serif'; Chart.defaults.color = tickColor; }
-const baseTooltip = { backgroundColor: '#172B4D', padding: 10, cornerRadius: 8, titleFont: { weight: '700' }, displayColors: false };
+const baseTooltip = { backgroundColor: '#090A13', padding: 10, cornerRadius: 8, titleFont: { weight: '700' }, displayColors: false };
 
 function renderDashboard() {
   const company = $('dCompany').value, activity = $('dActivity').value, useOpt = $('dOpt').checked;
@@ -332,16 +359,22 @@ function renderDashboard() {
   const fteNeed = totalH / norm;
   const over = people.filter(r => r.load > 1).length;
 
-  const kpi = (icon, label, value, foot) => `<div class="card kpi"><div class="label"><i class="fas ${icon}"></i>${label}</div><div class="value">${value}</div><div class="foot">${foot}</div></div>`;
+  const hs = (label, value, foot) => `<div class="hero-stat"><div class="l">${label}</div><div class="v">${value}</div><div class="f">${foot}</div></div>`;
+  const gap = fteHave - fteNeed;
+  $('heroStats').innerHTML = [
+    hs('İllik iş həcmi', `${fmt(totalH)} <small>saat</small>`, `${fmt(active.length)} aktiv tapşırıq`),
+    hs('Lazım olan ştat', `${fmt(fteNeed, 1)} <small>FTE</small>`, `${fmt(totalH)} ÷ ${fmt(norm)} saat`),
+    hs('Mövcud ştat', `${fmt(fteHave, 1)} <small>FTE</small>`, `${people.length} nəfər tapşırıq icra edir`),
+    hs(gap >= 0 ? 'Ehtiyat tutum' : 'Ştat çatışmazlığı', `${gap >= 0 ? '+' : '−'}${fmt(Math.abs(gap), 1)} <small>FTE</small>`, `${fmt(Math.abs(gap) * norm)} saat ${gap >= 0 ? 'boş' : 'artıq yük'}`),
+  ].join('');
+  const kpi = (icon, label, value, foot) => `<div class="card kpi"><div class="ic"><i class="fas ${icon}"></i></div><div><div class="label">${label}</div><div class="value">${value}</div><div class="foot">${foot}</div></div></div>`;
   $('kpis').innerHTML = [
-    kpi('fa-hourglass-half', 'İllik iş həcmi', `${fmt(totalH)} <small>saat</small>`, `${fmt(active.length)} aktiv tapşırıq`),
-    kpi('fa-user-tie', 'Lazım olan ştat', `${fmt(fteNeed, 1)} <small>FTE</small>`, `${fmt(totalH)} ÷ ${fmt(norm)} saat`),
-    kpi('fa-users', 'Mövcud ştat', `${fmt(fteHave, 1)} <small>FTE</small>`, `${people.length} nəfər · fərq ${fteHave - fteNeed >= 0 ? '+' : ''}${fmt(fteHave - fteNeed, 1)}`),
-    kpi('fa-circle-exclamation', 'Norması aşılan', `${over} <small>nəfər</small>`, `> 100% yük`),
+    kpi('fa-fire', 'Norması aşılan', `${over} <small>nəfər</small>`, `> 100% yük`),
     kpi('fa-ban', 'Ləğvdən qənaət', `${fmt(cancelledH)} <small>saat</small>`, `${cancelled.length} iş · ${fmt(cancelledH / norm, 2)} FTE`),
     kpi('fa-right-left', 'Ötürülmüş işlər', `${transfers}`, 'İcraçısı dəyişən aktiv iş'),
-    kpi('fa-bolt', 'Optimizasiya potensialı', `${fmt(optSave)} <small>saat</small>`, useOpt ? 'Hesablamaya tətbiq olunub' : `Tətbiq edilsə: ${fmt(rawH - optSave)} saat`),
+    kpi('fa-bolt', 'Optimizasiya potensialı', `${fmt(optSave)} <small>saat</small>`, useOpt ? 'Hesablamaya tətbiq olunub' : `${fmt(optSave / norm, 2)} FTE qənaət mümkündür`),
   ].join('');
+  $('warnLabel').textContent = state.settings.warn;
 
   // Load chart (people only, sorted)
   const lr = loads.filter(r => !r.isGroup).sort((a, b) => b.load - a.load);
@@ -352,9 +385,9 @@ function renderDashboard() {
       const x = c.scales.x.getPixelForValue(100);
       const { top, bottom } = c.chartArea;
       const ctx = c.ctx; ctx.save();
-      ctx.strokeStyle = '#172B4D'; ctx.globalAlpha = .5; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#090A13'; ctx.globalAlpha = .5; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke();
-      ctx.setLineDash([]); ctx.globalAlpha = .8; ctx.fillStyle = '#172B4D'; ctx.font = '600 11px Inter';
+      ctx.setLineDash([]); ctx.globalAlpha = .8; ctx.fillStyle = '#090A13'; ctx.font = '600 11px Inter';
       ctx.fillText('Norma 100%', x + 6, top + 10); ctx.restore();
     },
   };
@@ -366,7 +399,7 @@ function renderDashboard() {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
       scales: {
         x: { beginAtZero: true, suggestedMax: 120, grid: { color: gridColor }, border: { display: false }, ticks: { callback: v => v + '%' } },
-        y: { grid: { display: false }, border: { display: false }, ticks: { color: '#172B4D', font: { weight: '600' } } },
+        y: { grid: { display: false }, border: { display: false }, ticks: { color: '#11131C', font: { weight: '600' } } },
       },
       plugins: {
         legend: { display: false },
@@ -385,8 +418,8 @@ function renderDashboard() {
   chart('beforeAfterChart', {
     type: 'bar',
     data: { labels: ba.map(r => r.name), datasets: [
-      { label: 'Əvvəl', data: ba.map(r => +r.before.toFixed(1)), backgroundColor: '#2a78d6', borderRadius: 4, categoryPercentage: .7, barPercentage: .9 },
-      { label: 'İndi', data: ba.map(r => +r.hours.toFixed(1)), backgroundColor: '#eb6834', borderRadius: 4, categoryPercentage: .7, barPercentage: .9 },
+      { label: 'Əvvəl', data: ba.map(r => +r.before.toFixed(1)), backgroundColor: '#A3A7B7', borderRadius: 4, categoryPercentage: .7, barPercentage: .9 },
+      { label: 'İndi', data: ba.map(r => +r.hours.toFixed(1)), backgroundColor: '#F2501E', borderRadius: 4, categoryPercentage: .7, barPercentage: .9 },
     ] },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -406,20 +439,22 @@ function renderDashboard() {
       <div class="split-rows">${groups.map((g, i) => `<div><span><i style="background:${colors[i]}"></i>${esc(g[0])}</span><span class="num">${fmt(g[1])} saat · ${pct(g[1] / tot)}</span></div>`).join('')}</div></div>`;
   };
   const groupBy = (arr, keyFn) => { const m = {}; arr.forEach(t => { const k = keyFn(t) || '—'; m[k] = (m[k] || 0) + effHours(t, useOpt); }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
-  const pal = ['#2a78d6', '#eb6834', '#1baf7a'];
+  const coColor = { Birbank: '#E30613', Pashapay: '#2347A8' };
+  const actColor = { [ACT_ADMIN]: '#3D4152', [ACT_PROJECT]: '#FF7A1A' };
+  const byCo = groupBy(active, t => t.company), byAct = groupBy(active, t => activityOf(curOwner(t)));
   const byStatus = groupBy(active, statusOf);
-  const statusColors = { 'Mövcud': '#2a78d6', 'Transfer': '#eb6834', 'Yeni': '#1baf7a' };
-  $('splits').innerHTML = split('Şirkət üzrə', groupBy(active, t => t.company), pal)
-    + split('Fəaliyyət forması üzrə', groupBy(active, t => activityOf(curOwner(t))), pal)
+  const statusColors = { 'Mövcud': '#2347A8', 'Transfer': '#FF7A1A', 'Yeni': '#1baf7a' };
+  $('splits').innerHTML = split('Şirkət üzrə', byCo, byCo.map(g => coColor[g[0]] || '#A3A7B7'))
+    + split('Fəaliyyət forması üzrə', byAct, byAct.map(g => actColor[g[0]] || '#A3A7B7'))
     + split('Status üzrə', byStatus, byStatus.map(g => statusColors[g[0]] || '#C1C7D0'));
 
   // Process & category
   const hbar = (id, entries) => chart(id, {
     type: 'bar',
-    data: { labels: entries.map(e => e[0]), datasets: [{ data: entries.map(e => +e[1].toFixed(1)), backgroundColor: '#2a78d6', borderRadius: 4, barThickness: 14 }] },
+    data: { labels: entries.map(e => e[0]), datasets: [{ data: entries.map(e => +e[1].toFixed(1)), backgroundColor: '#F2501E', borderRadius: 4, barThickness: 14 }] },
     options: {
       indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-      scales: { x: { beginAtZero: true, grid: { color: gridColor }, border: { display: false } }, y: { grid: { display: false }, border: { display: false }, ticks: { color: '#172B4D' } } },
+      scales: { x: { beginAtZero: true, grid: { color: gridColor }, border: { display: false } }, y: { grid: { display: false }, border: { display: false }, ticks: { color: '#11131C' } } },
       plugins: { legend: { display: false }, tooltip: { ...baseTooltip, callbacks: { label: (i) => `${fmt(i.raw, 1)} saat · ${fmt(i.raw / norm, 2)} FTE` } } },
     },
   });
@@ -455,9 +490,9 @@ function renderEmployees() {
   $('empGrid').innerHTML = list.map(({ e, r }) => {
     const l = level(r.load), w = Math.min(100, r.load * 100);
     const cap = state.settings.norm * (e.fte || 1);
-    return `<div class="card emp-card" data-emp="${esc(e.name)}">
+    return `<div class="card emp-card ${!e.is_group && r.load > 1 ? 'over' : ''}" data-emp="${esc(e.name)}">
       <div class="emp-top">
-        <div class="avatar ${e.is_group ? 'group' : ''}">${e.is_group ? '<i class="fas fa-users"></i>' : esc(e.name.charAt(0))}</div>
+        <div class="avatar ${e.is_group ? 'group' : r.load > 1 ? 'hot' : ''}">${e.is_group ? '<i class="fas fa-users"></i>' : esc(e.name.charAt(0))}</div>
         <div style="min-width:0"><div class="emp-name">${esc(e.name)}</div>
           <div class="emp-tags"><span class="tag co-${esc(e.company)}">${esc(e.company)}</span>
           <span class="tag ${e.activity === ACT_PROJECT ? 'act-p' : ''}">${esc(e.activity)}</span>${e.is_group ? '<span class="tag">qrup</span>' : ''}</div></div>
@@ -606,22 +641,23 @@ function renderTasks() {
 
 /* ---------------- render: log ---------------- */
 function renderLog() {
-  const a = $('lAction').value, q = $('lSearch').value.trim().toLowerCase();
-  const list = state.log.filter(l => (a === 'all' || l.action === a) && (!q || `${l.task_label} ${l.from} ${l.to} ${l.comment}`.toLowerCase().includes(q))).slice().reverse();
-  const icon = { 'Ötürmə': 'fa-right-left', 'Ləğv': 'fa-ban', 'Bərpa': 'fa-rotate', 'Silinmə': 'fa-trash', 'Yeni': 'fa-plus', 'Düzəliş': 'fa-pen', 'Import': 'fa-file-import', 'Əməkdaş': 'fa-user-pen' };
+  const a = $('lAction').value, u = $('lUser').value, q = $('lSearch').value.trim().toLowerCase();
+  const list = state.log.filter(l => (a === 'all' || l.action === a) && (u === 'all' || l.user === u) && (!q || `${l.task_label} ${l.from} ${l.to} ${l.comment} ${l.user}`.toLowerCase().includes(q))).slice().reverse();
+  const icon = { 'Ötürmə': 'fa-right-left', 'Ləğv': 'fa-ban', 'Bərpa': 'fa-rotate', 'Silinmə': 'fa-trash', 'Yeni': 'fa-plus', 'Düzəliş': 'fa-pen', 'Import': 'fa-file-import', 'Əməkdaş': 'fa-user-pen', 'Geri alma': 'fa-rotate-left', 'Ayarlar': 'fa-sliders' };
+  const when = (ts) => { const d = new Date(ts); return isNaN(d) ? esc(ts) : esc(d.toLocaleString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })); };
   $('logList').innerHTML = list.length ? list.slice(0, 500).map(l => `<div class="log-item">
-      <div class="muted num">${esc(new Date(l.ts).toLocaleString('az-AZ'))}</div>
-      <div><b><i class="fas ${icon[l.action] || 'fa-circle'}" style="width:16px"></i> ${esc(l.action)}</b></div>
+      <div class="muted num">${when(l.ts)}</div>
+      <div><b><span class="log-ic"><i class="fas ${icon[l.action] || 'fa-circle'}"></i></span>${esc(l.action)}</b></div>
       <div>${esc(l.task_label)}${l.from || l.to ? `<div class="muted">${esc(l.from)}${l.to ? ' → ' + esc(l.to) : ''}</div>` : ''}${l.comment ? `<div class="hint">“${esc(l.comment)}”</div>` : ''}</div>
-    </div>`).join('') + (list.length > 500 ? `<div class="hint" style="padding-top:10px">Son 500 qeyd göstərilir. Hamısı Excel export-dadır.</div>` : '')
+      <div class="muted" style="text-align:right"><i class="fas fa-user" style="font-size:.7rem"></i> ${esc(l.user || '—')}</div>
+    </div>`).join('') + (list.length > 500 ? `<div class="hint" style="padding-top:10px">Son 500 qeyd göstərilir. Hamısı Excel export-da və Sheet-in “Log” vərəqindədir.</div>` : '')
     : '<div class="empty">Hələ əməliyyat yoxdur. Ötürmə, ləğv və düzəlişlər burada görünəcək.</div>';
 }
 
 /* ---------------- render: settings ---------------- */
 function renderSettings() {
   $('sNorm').value = state.settings.norm; $('sWarn').value = state.settings.warn;
-  $('sUrl').value = state.settings.scriptUrl; $('sToken').value = state.settings.token;
-  $('dataInfo').innerHTML = `${state.tasks.length} tapşırıq, ${state.employees.length} əməkdaş, ${state.log.length} jurnal qeydi. Saxlanma yeri: <b>${remoteOn() ? 'Google Sheet + bu brauzer' : 'yalnız bu brauzer'}</b>.`;
+  $('dataInfo').innerHTML = `Sheet-də <b>${state.tasks.length}</b> tapşırıq, <b>${state.employees.length}</b> əməkdaş, <b>${state.log.length}</b> jurnal qeydi var.`;
 }
 
 /* ---------------- modals ---------------- */
@@ -797,7 +833,7 @@ const TASK_COLS = [
   ['id', 'id'], ['company', 'Şirkət'], ['activity', 'Fəaliyyət forması'], ['process', 'Proses'], ['category', 'Kateqoriya'], ['task', 'Tapşırıq'],
   ['owner_before', 'İlkin icraçı'], ['owner_after', 'Yeni icraçı'], ['current', 'Cari icraçı'], ['status', 'Status'], ['is_cancelled', 'Ləğv edilib'],
   ['min_per_key', '1 əməliyyata dəqiqə'], ['annual_freq', 'İllik təkrarlanma'], ['unit', 'Vahid'], ['hours', 'İllik saat'], ['after_opt', 'Optimizasiyadan sonra (saat)'],
-  ['description', 'Qeyd'], ['updated_at', 'Son dəyişiklik'],
+  ['description', 'Qeyd'], ['updated_at', 'Son dəyişiklik'], ['updated_by', 'Dəyişən'],
 ];
 const EMP_COLS = [['name', 'Ad'], ['company', 'Şirkət'], ['activity', 'Fəaliyyət forması'], ['fte', 'Ştat'], ['is_group', 'Qrup'], ['active', 'Aktiv']];
 const ALIASES = {
@@ -814,7 +850,8 @@ const ALIASES = {
 };
 const normH = (h) => String(h || '').replace(/İ/g, 'i').toLowerCase().normalize('NFC').replace(/\u0307/g, '').replace(/\s+/g, ' ').trim();
 
-function exportExcel() {
+async function exportExcel() {
+  await pull({ silent: true }).catch(() => {});
   const wb = XLSX.utils.book_new();
   const tasks = state.tasks.map(t => {
     const o = curOwner(t);
@@ -831,12 +868,12 @@ function exportExcel() {
     'Əvvəl (saat)': +r.before.toFixed(2), 'İndi (saat)': +r.hours.toFixed(2), 'Norma (saat)': r.isGroup ? '' : r.cap, 'Boş tutum (saat)': r.isGroup ? '' : +r.free.toFixed(2), 'Yük (%)': r.isGroup ? '' : +(r.load * 100).toFixed(1),
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(loads), 'Yük analizi');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.log.map(l => ({ 'Tarix': l.ts, 'Əməliyyat': l.action, 'Tapşırıq': l.task_label, 'id': l.task_id, 'Kimdən': l.from, 'Kimə': l.to, 'Şərh': l.comment }))), 'Jurnal');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(state.log.map(l => ({ 'Tarix': l.ts, 'İstifadəçi': l.user || '', 'Əməliyyat': l.action, 'Tapşırıq': l.task_label, 'id': l.task_id, 'Kimdən': l.from, 'Kimə': l.to, 'Şərh': l.comment }))), 'Jurnal');
   XLSX.writeFile(wb, `workforce-planning-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 function exportTemplate() {
   const wb = XLSX.utils.book_new();
-  const cols = TASK_COLS.filter(([k]) => !['activity', 'current', 'status', 'updated_at'].includes(k)).map(c => c[1]);
+  const cols = TASK_COLS.filter(([k]) => !['activity', 'current', 'status', 'updated_at', 'updated_by'].includes(k)).map(c => c[1]);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([cols]), 'Tapşırıqlar');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EMP_COLS.map(c => c[1])]), 'Əməkdaşlar');
   XLSX.writeFile(wb, 'workforce-planning-sablon.xlsx');
@@ -862,6 +899,8 @@ function parseRows(rows) {
 }
 
 async function handleImport(file) {
+  // Ən son vəziyyətlə müqayisə etmək üçün əvvəlcə Sheet-dən yenilə
+  await pull({ silent: true }).catch(() => {});
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array' });
   const tName = wb.SheetNames.find(n => /tap[şs]ır/i.test(n)) || wb.SheetNames[0];
@@ -902,14 +941,15 @@ async function handleImport(file) {
 function bind() {
   $('tabs').querySelectorAll('.tab').forEach(t => t.onclick = () => {
     $('tabs').querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
-    document.querySelectorAll('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + t.dataset.view));
+    if ($('loading').classList.contains('hidden')) document.querySelectorAll('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + t.dataset.view));
+    $('pageTitle').textContent = t.dataset.title;
     renderAll(); window.scrollTo(0, 0);
   });
   ['dCompany', 'dActivity', 'dOpt'].forEach(id => $(id).onchange = renderDashboard);
   ['eCompany', 'eActivity', 'eSort'].forEach(id => $(id).onchange = renderEmployees); $('eSearch').oninput = renderEmployees;
   ['tCompany', 'tProcess', 'tOwner', 'tStatus', 'tActivity'].forEach(id => $(id).onchange = renderTasks); $('tSearch').oninput = renderTasks;
   $('tReset').onclick = () => { $('tSearch').value = ''; ['tCompany', 'tProcess', 'tOwner', 'tStatus', 'tActivity'].forEach(id => $(id).value = 'all'); renderTasks(); };
-  $('lAction').onchange = renderLog; $('lSearch').oninput = renderLog;
+  $('lAction').onchange = renderLog; $('lUser').onchange = renderLog; $('lSearch').oninput = renderLog;
   $('addTaskBtn').onclick = () => openTaskModal(null);
   $('addEmpBtn').onclick = () => openEmployeeModal(null);
   $('undoBtn').onclick = undo;
@@ -934,42 +974,42 @@ function bind() {
   $('saveNormBtn').onclick = () => {
     const n = num($('sNorm').value), w = num($('sWarn').value);
     if (!n || n <= 0) return toast('Norma müsbət rəqəm olmalıdır.');
-    state.settings.norm = n; state.settings.warn = w && w > 0 && w <= 100 ? w : 85;
-    saveLocal(); renderAll(); toast('Norma yadda saxlandı.');
+    const warn = w && w > 0 && w <= 100 ? w : 85;
+    commit('Norma yeniləndi', () => { state.settings.norm = n; state.settings.warn = warn; }, [{ action: 'Ayarlar', task_label: `Norma: ${n} saat, yüksək yük həddi: ${warn}%` }]);
   };
-  $('connectBtn').onclick = async () => {
-    const url = $('sUrl').value.trim();
-    if (!/^https:\/\/script\.google\.com\//.test(url)) return toast('URL https://script.google.com/... ilə başlamalıdır.');
-    state.settings.scriptUrl = url; state.settings.token = $('sToken').value.trim(); saveLocal();
-    try {
-      const n = await pullRemote();
-      if (!n) toast('Sheet boşdur. “Bu məlumatları Sheet-ə yaz” düyməsi ilə indiki məlumatları ora köçürün.');
-      else toast(`Google Sheet-dən ${n} tapşırıq yükləndi.`);
-    } catch (e) { console.error(e); setSync('err', 'Bağlantı xətası'); toast('Qoşulmaq alınmadı: ' + e.message); }
+  $('refreshBtn').onclick = () => { lastServerHash = ''; pull().then(() => toast('Sheet-dən yeniləndi.')).catch(e => { setSync('err', 'Xəta'); toast(e.message); }); };
+  $('seedBtn').onclick = async () => {
+    $('seedBtn').disabled = true;
+    try { await api('/api/seed', { method: 'POST' }); lastServerHash = ''; await pull(); toast('İlkin məlumatlar Sheet-ə yazıldı.'); }
+    catch (e) { toast(e.message); }
+    $('seedBtn').disabled = false;
   };
-  $('pushBtn').onclick = async () => {
-    if (!remoteOn()) return toast('Əvvəl URL-i daxil edib “Qoş” düyməsini basın.');
-    if (!confirm('Google Sheet-dəki məlumatlar bu brauzerdəki məlumatlarla əvəz olunacaq. Davam edilsin?')) return;
-    setSync('busy', 'Yazılır...');
-    try { const j = await remoteWrite(true); if (j.status !== 'success') throw new Error(j.message); state.version = j.version; saveLocal(); setSync('ok', 'Google Sheet'); toast('Məlumatlar Google Sheet-ə yazıldı.'); }
-    catch (e) { setSync('err', 'Yazma xətası'); toast('Yazmaq alınmadı: ' + e.message); }
-  };
-  $('disconnectBtn').onclick = () => { state.settings.scriptUrl = ''; state.settings.token = ''; state.version = null; saveLocal(); setSync('', 'Yerli'); renderAll(); toast('Google Sheet bağlantısı ayrıldı. Məlumatlar bu brauzerdə qalır.'); };
-  $('resetBtn').onclick = () => {
-    if (!confirm('Bütün dəyişikliklər silinib ilkin məlumatlar (Birbank + Pashapay cədvəlləri) yüklənsin?')) return;
-    const settings = state.settings;
-    commit('İlkin məlumatlar yükləndi', () => { const s = seedState(); state.tasks = s.tasks; state.employees = s.employees; state.settings = settings; }, [{ action: 'Import', task_label: 'İlkin məlumatlara qaytarıldı' }]);
-  };
+  const logout = async () => { try { await api('/api/logout', { method: 'POST' }); } catch (e) {} localStorage.removeItem(CACHE_KEY); location.href = '/login.html'; };
+  $('logoutBtn').onclick = logout; $('logoutBtn2').onclick = logout;
+  // Başqalarının dəyişikliklərini avtomatik gətir
+  setInterval(() => { if (document.visibilityState === 'visible' && !$('modal').classList.contains('open')) pull({ silent: true }).catch(() => {}); }, POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pull({ silent: true }).catch(() => {}); });
+  window.addEventListener('beforeunload', (e) => { if (queue.length || sending) { e.preventDefault(); e.returnValue = ''; } });
 }
 
 /* ---------------- init ---------------- */
 async function init() {
-  state = loadLocal();
+  state = emptyState();
+  const cache = loadCache();
   bind();
-  renderAll();
-  if (remoteOn()) {
-    try { await pullRemote(); } catch (e) { console.error(e); setSync('err', 'Offline — yerli nüsxə'); toast('Google Sheet-ə qoşulmaq alınmadı. Yerli nüsxə göstərilir.'); }
+  if (cache) { me = cache.me; state = cache.state; state.settings = { ...DEFAULT_SETTINGS, ...state.settings }; showApp(); renderAll(); }
+  try { await pull({ silent: !!cache }); showApp(); }
+  catch (e) {
+    console.error(e); setSync('err', 'Bağlantı xətası');
+    if (!cache) $('loading').innerHTML = `<div class="empty"><b>Sheet-ə qoşulmaq alınmadı</b><br>${esc(e.message)}</div>`;
+    else toast('Sheet-ə qoşulmaq alınmadı, son yüklənmiş nüsxə göstərilir: ' + e.message);
   }
+}
+function showApp() {
+  $('loading').classList.add('hidden');
+  if (!document.querySelector('.view:not(.hidden)')) $('view-' + currentView()).classList.remove('hidden');
+  $('userName').textContent = me || '—';
+  $('userAv').textContent = (me || '·').charAt(0).toUpperCase();
 }
 document.addEventListener('DOMContentLoaded', init);
 })();
