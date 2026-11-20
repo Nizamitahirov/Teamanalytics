@@ -7,7 +7,7 @@ Bu fayl Claude Code üçün layihənin işçi təlimatıdır. Hər sessiyada əv
 Bank qrupunun **Əmək Münasibətləri şöbəsi** üçün iş yükü və ştat planlaması (workforce planning) platforması.
 Şöbənin bütün təkrarlanan işləri (tapşırıqları) — kim edir, ildə neçə dəfə, neçə saat aparır — bir yerdə saxlanır; rəhbər işləri əməkdaşlar arasında ötürür, ləğv edir, yükü normaya (2026: **1922 saat/il/ştat**) görə izləyir və rəhbərliyə vizual hesabat təqdim edir.
 
-- **Canlı sayt:** https://teamanalytics.vercel.app (Vercel, `main` branch-dan avtomatik deploy)
+- **Canlı sayt:** https://teamanalytics.vercel.app — **v2** (Vercel, `main` branch-dan avtomatik deploy); köhnə v1 ehtiyat kimi `/legacy/` (ADR-010)
 - **Repo:** `Nizamitahirov/Teamanalytics` (public)
 - **Baza:** Firebase Firestore, layihə `worforce-74ddf`, baza `(default)`
 - **Giriş:** ilk istifadəçi `Ecosystem` / `Ecosystem` (Firestore `users` kolleksiyası; Ayarlar → İstifadəçilər)
@@ -16,11 +16,11 @@ Bank qrupunun **Əmək Münasibətləri şöbəsi** üçün iş yükü və ştat
 
 ## 2. Stack və qovluq xəritəsi
 
-Keçid dövrü (SPEC §15): **canlı sayt hələ v1 klientidir** (`public/`, build-siz), server isə Mərhələ 1-dən TypeScript-dədir. v2 klienti (React + Vite) paralel qurulur və Mərhələ 10-a qədər deploy olunmur.
-Vercel: `public/` statik (v1), `api/*.ts` Node serverless funksiya (Vercel TS-i özü kompilyasiya edir). `vercel.json`-da `framework: null` və heç nə qurmayan `buildCommand` — Vite build-i canlıya təsir etmir.
+**Canlı sayt v2-dir** (React + Vite, kökdə `/`); v1 (`public/`, build-siz) dəyişmədən `/legacy/` altında ehtiyat kimi qalır (ADR-010). Server Mərhələ 1-dən TypeScript-dədir və hər iki klientə xidmət edir.
+Vercel: `buildCommand = npm run build:vercel` (v2 → `dist/`, `public/` → `dist/legacy/`), `outputDirectory = dist`, SPA rewrite (`/api`, `/assets`, `/legacy` xaric), `/login.html` → `/login` yönləndirməsi; `api/*.ts` Node serverless funksiya.
 
 ```
-public/                 v1 klienti (dəyişməz; Mərhələ 10-da legacy/ olacaq)
+public/                 v1 klienti — canlıda /legacy/ (ehtiyat; yönləndirmələr nisbi)
   index.html login.html app.js styles.css vendor/
 api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health, scenarios, notifications
 server/                 Server məntiqi (Vercel-dən asılı deyil, testlənir)
@@ -76,7 +76,8 @@ npm run typecheck  # tsc: server (tsconfig.json, NodeNext) + klient (tsconfig.ap
 npm run lint       # ESLint (typescript-eslint, react-hooks, jsx-a11y); public/ istisnadır
 npm run format     # Prettier (format:check — CI)
 npm test           # Vitest: qızıl testlər, server (mock Firestore), unit
-npm run build      # v2 Vite build → dist/ (deploy olunmur)
+npm run build      # v2 Vite build → dist/
+npm run build:vercel # canlı build: v2 → dist/ + v1 → dist/legacy/ (Vercel bunu işlədir)
 npm run e2e        # v2 Playwright (dev serverləri özü işə salır); CDN bağlıdırsa XLSX_PATH=… (Excel testləri)
 npm run e2e:v1     # v1 testi (npm run dev işləyərkən; pip install playwright openpyxl)
                    # XLSX_PATH=/path/xlsx.full.min.js — CDN əlçatmazdırsa Excel testi üçün

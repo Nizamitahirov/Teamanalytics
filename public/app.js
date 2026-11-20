@@ -146,7 +146,7 @@ function loadCache() {
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, ...opts });
-  if (res.status === 401) { localStorage.removeItem(CACHE_KEY); location.href = '/login.html'; throw new Error('Sessiya bitib'); }
+  if (res.status === 401) { localStorage.removeItem(CACHE_KEY); location.href = 'login.html'; throw new Error('Sessiya bitib'); }
   const j = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(j.error || `Server xətası (${res.status})`);
   return j;
@@ -1050,7 +1050,7 @@ function bind() {
   };
   $('refreshBtn').onclick = () => { pull({ full: true }).then(() => toast('Bazadan yeniləndi.')).catch(e => { setSync('err', 'Xəta'); toast(e.message); }); };
   $('addUserBtn').onclick = () => openUserModal(null);
-  const logout = async () => { try { await api('/api/logout', { method: 'POST' }); } catch (e) {} localStorage.removeItem(CACHE_KEY); location.href = '/login.html'; };
+  const logout = async () => { try { await api('/api/logout', { method: 'POST' }); } catch (e) {} localStorage.removeItem(CACHE_KEY); location.href = 'login.html'; };
   $('logoutBtn').onclick = logout; $('logoutBtn2').onclick = logout;
   // Başqalarının dəyişikliklərini avtomatik gətir
   setInterval(() => { if (document.visibilityState === 'visible' && !$('modal').classList.contains('open')) pull({ silent: true }).catch(() => {}); }, POLL_MS);

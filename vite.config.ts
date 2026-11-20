@@ -1,8 +1,8 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// v2 klienti (SPEC §4). v1 `public/` qovluğu Vite-in publicDir-i DEYİL — Vercel hələ v1-i yayımlayır,
-// v2 build-i (dist/) Mərhələ 10-a qədər deploy olunmur (SPEC §15.1).
+// v2 klienti (SPEC §4) — canlıda kökdə (/) işləyir (keçid, ADR-010). v1 `public/` Vite-in publicDir-i DEYİL:
+// Vercel build-i (`npm run build:vercel`) v2-ni dist/-ə yığır, v1-i dəyişmədən dist/legacy/-ə köçürür (ehtiyat).
 // CSP (SPEC §10) — v2 build-inə meta teq kimi. Dev serverə tətbiq olunmur (Vite HMR inline skript istifadə edir).
 // Canlıda v1 (public/login.html inline skript) hələ işlədiyi üçün HTTP başlığı kimi CSP Mərhələ 10-da (keçid) əlavə olunacaq.
 const CSP = [

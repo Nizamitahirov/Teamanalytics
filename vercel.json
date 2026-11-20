@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "node -e \"console.log('v1 build tələb etmir; v2 (Vite) Mərhələ 10-da açılır')\"",
-  "outputDirectory": "public",
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "dist",
   "functions": {
     "api/*.ts": {
       "includeFiles": "data/**"
@@ -35,13 +35,54 @@
       ]
     },
     {
-      "source": "/vendor/(.*)",
+      "source": "/legacy/vendor/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "public, max-age=604800"
         }
       ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!api/|assets/|legacy/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/login.html",
+      "destination": "/login",
+      "permanent": false
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": false
+    },
+    {
+      "source": "/legacy",
+      "destination": "/legacy/",
+      "permanent": false
     }
   ]
 }

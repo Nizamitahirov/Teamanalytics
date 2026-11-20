@@ -6,7 +6,7 @@ import { useI18n } from '../../lib/i18n';
 import { navByPath } from '../../app/nav';
 
 // v1 hazırda canlı saytdadır; v2 bölmələri hazır olana qədər oraya yönəldirik
-const V1_URL = 'https://teamanalytics.vercel.app/';
+const V1_URL = '/legacy/'; // köhnə versiya (ehtiyat, ADR-010)
 
 /** Hələ hazırlanmayan bölmələr üçün yer tutan (feature flag arxasındakı v2 qabığı). */
 export function PlaceholderPage() {
