@@ -6,7 +6,8 @@
 // React-dən asılı deyil: node testlərində iki "istifadəçi" kimi işlədilir (tests/server/sync.test.ts).
 import { createStore } from 'zustand/vanilla';
 import { produce, type Draft } from 'immer';
-import type { Conflict, LogEntry, Op, OpsResponse } from '../../shared/schema';
+import type { Conflict, LogEntry, Notification, Op, OpsResponse, Scenario } from '../../shared/schema';
+import { scenarioFromRow } from '../../shared/scenarioDoc';
 import {
   diffOps,
   EMP_FIELDS,
@@ -49,6 +50,12 @@ export type DataStoreState = {
   undo: HistoryEntry[];
   redo: HistoryEntry[];
   conflicts: ClientConflict[];
+  /** Ssenarilər (SPEC §6.5) və bu istifadəçinin bildirişləri — /api/data ilə (deltada) gəlir */
+  scenarios: Scenario[];
+  notifications: Notification[];
+  /** Server cavabından sonra lokal siyahını dərhal yenilə (növbəti yoxlamanı gözləmədən) */
+  putScenario(sc: Scenario | null, id?: string): void;
+  markRead(ids: string[]): void;
   /** Yalnız baxış (viewer) — commit/undo/redo heç nə etmir (server də 403 qaytarır) */
   readOnly: boolean;
   setReadOnly(v: boolean): void;
@@ -78,6 +85,8 @@ type ServerData = {
   tasks?: (Record<string, unknown> & { _deleted?: boolean })[];
   employees?: (Record<string, unknown> & { _deleted?: boolean })[];
   log?: LogEntry[];
+  scenarios?: (Record<string, unknown> & { _deleted?: boolean })[];
+  notifications?: Notification[];
 };
 
 export type DataStoreDeps = {
@@ -101,7 +110,15 @@ export function createDataStore(deps: DataStoreDeps) {
   const store = createStore<DataStoreState>()((set, get) => {
     const snapshot = () => {
       const s = get();
-      return { version: CACHE_VERSION, user: s.user, lastTs: s.lastTs, data: s.data, queue: s.queue } as const;
+      return {
+        version: CACHE_VERSION,
+        user: s.user,
+        lastTs: s.lastTs,
+        data: s.data,
+        queue: s.queue,
+        scenarios: s.scenarios,
+        notifications: s.notifications,
+      } as const;
     };
     const persistNow = () => {
       if (saveTimer) clearTimeout(saveTimer);
@@ -112,10 +129,7 @@ export function createDataStore(deps: DataStoreDeps) {
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
         saveTimer = null;
-        const s = get();
-        void deps.persist
-          .save({ version: CACHE_VERSION, user: s.user, lastTs: s.lastTs, data: s.data, queue: s.queue })
-          .catch(() => undefined);
+        void deps.persist.save(snapshot()).catch(() => undefined);
       }, 50);
     };
 
@@ -186,8 +200,36 @@ export function createDataStore(deps: DataStoreDeps) {
         return v === op.v ? op : { ...op, v };
       });
 
+    const sortScenarios = (list: Scenario[]) => list.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    const sortNotes = (list: Notification[]) => list.sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 100);
+    const applyExtras = (d: ServerData) => {
+      if (d.full) {
+        set({
+          scenarios: sortScenarios((d.scenarios ?? []).filter((x) => !x._deleted).map(scenarioFromRow)),
+          notifications: sortNotes([...(d.notifications ?? [])]),
+        });
+        return;
+      }
+      if (!d.delta) return;
+      if (d.scenarios?.length) {
+        const m = new Map(get().scenarios.map((x) => [x.id, x]));
+        for (const r of d.scenarios) {
+          const sc = scenarioFromRow(r);
+          if (r._deleted) m.delete(sc.id);
+          else m.set(sc.id, sc);
+        }
+        set({ scenarios: sortScenarios([...m.values()]) });
+      }
+      if (d.notifications?.length) {
+        const m = new Map(get().notifications.map((x) => [x.id, x]));
+        for (const n of d.notifications) m.set(n.id, n);
+        set({ notifications: sortNotes([...m.values()]) });
+      }
+    };
+
     const applyServerData = (d: ServerData) => {
       const s = get();
+      applyExtras(d);
       if (d.full) {
         set({
           data: {
@@ -250,13 +292,35 @@ export function createDataStore(deps: DataStoreDeps) {
       undo: [],
       redo: [],
       conflicts: [],
+      scenarios: [],
+      notifications: [],
       readOnly: false,
       setReadOnly: (v) => set({ readOnly: v }),
+
+      putScenario(sc, id) {
+        const rest = get().scenarios.filter((x) => x.id !== (sc?.id ?? id));
+        set({ scenarios: sortScenarios(sc ? [sc, ...rest] : rest) });
+        persistSoon();
+      },
+
+      markRead(ids) {
+        const set_ = new Set(ids);
+        set({ notifications: get().notifications.map((n) => (set_.has(n.id) ? { ...n, read: true } : n)) });
+        persistSoon();
+      },
 
       async hydrate() {
         const c = await deps.persist.load().catch(() => null);
         if (!c) return;
-        set({ user: c.user, lastTs: c.lastTs, data: c.data, queue: c.queue, ready: c.data.tasks.length > 0 });
+        set({
+          user: c.user,
+          lastTs: c.lastTs,
+          data: c.data,
+          queue: c.queue,
+          scenarios: c.scenarios ?? [],
+          notifications: c.notifications ?? [],
+          ready: c.data.tasks.length > 0,
+        });
       },
 
       async pull({ full = false } = {}) {
@@ -465,6 +529,8 @@ export function createDataStore(deps: DataStoreDeps) {
           undo: [],
           redo: [],
           conflicts: [],
+          scenarios: [],
+          notifications: [],
           status: 'loading',
         });
       },

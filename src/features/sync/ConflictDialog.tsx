@@ -14,7 +14,9 @@ export function ConflictDialog() {
   const c = conflicts[0];
   if (!c) return null;
 
-  const fields = (c.table === 'Tasks' ? TASK_FIELDS : EMP_FIELDS).filter((f) => f !== 'updated_at');
+  // Texniki sahələr dialoqda göstərilmir (updated_at, sağlamlıq istisnaları, optimizasiya tarixi)
+  const HIDDEN = new Set(['updated_at', 'health_ignore', 'opt_done_at']);
+  const fields = (c.table === 'Tasks' ? TASK_FIELDS : EMP_FIELDS).filter((f) => !HIDDEN.has(f));
   const mine = c.mine as Record<string, unknown> | null;
   const theirs = c.theirs;
   const show = (v: unknown) =>

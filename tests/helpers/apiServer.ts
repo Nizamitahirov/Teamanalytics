@@ -11,7 +11,7 @@ export type TestApi = { base: string; fs: MockFirestore; close: () => Promise<vo
 export async function startApi(): Promise<TestApi> {
   const fs = await startMockFirestore();
   Object.assign(process.env, mockEnv(fs.url));
-  const names = ['login', 'logout', 'me', 'data', 'ops', 'log', 'users', 'health'];
+  const names = ['login', 'logout', 'me', 'data', 'ops', 'log', 'users', 'health', 'scenarios', 'notifications'];
   const handlers = Object.fromEntries(
     await Promise.all(names.map(async (n) => [n, (await import(`../../api/${n}.ts`)).default as Handler])),
   );

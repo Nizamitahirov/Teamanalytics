@@ -197,3 +197,18 @@
 .kpiLink:hover > div {
   box-shadow: var(--shadow-2);
 }
+
+/* Data sağlamlığı xəbərdarlığı (SPEC §6.8) */
+.healthLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--sp-3);
+  color: var(--warning-text);
+  font-weight: 600;
+  font-size: var(--fs-13);
+  text-decoration: none;
+}
+.healthLink:hover {
+  text-decoration: underline;
+}

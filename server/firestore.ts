@@ -13,9 +13,7 @@
 // v2 dəyişikliyi (SPEC §15.3): upsert artıq sənədi tam əvəz etmir — `updateMask` ilə yalnız göndərilən
 // sahələr yazılır. Firestore-da v1 klientinin bilmədiyi sahələr (v2 sahələri, konsolda əlavə olunanlar) qorunur.
 import { SETTINGS_KEYS, type Conflict, type Op } from '../shared/schema.js';
-
-// Ziddiyyət müqayisəsində nəzərə alınmayan texniki sahələr (shared/model.ts ilə eyni)
-const META_FIELDS = new Set(['updated_at', 'updated_by']);
+import { opKey, resolveVersions } from '../shared/apply.js';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const apiRoot = () => process.env.FIRESTORE_API_BASE || 'https://firestore.googleapis.com/v1';
@@ -210,9 +208,14 @@ async function listAll(coll: string): Promise<Doc[]> {
   } while (pageToken);
   return out;
 }
-async function query(coll: string, { since, orderDesc, limit }: { since?: string; orderDesc?: boolean; limit?: number } = {}) {
+async function query(
+  coll: string,
+  { since, orderDesc, limit, eq }: { since?: string; orderDesc?: boolean; limit?: number; eq?: [string, Scalar] } = {},
+) {
   const sq: Record<string, unknown> = { from: [{ collectionId: coll }] };
   if (since) sq.where = { fieldFilter: { field: { fieldPath: '_ts' }, op: 'GREATER_THAN', value: { timestampValue: since } } };
+  // Bərabərlik filtri sıralama ilə birlikdə işlədilmir (kompozit indeks tələb etməsin — sahibə addım yoxdur)
+  else if (eq) sq.where = { fieldFilter: { field: { fieldPath: eq[0] }, op: 'EQUAL', value: toValue(eq[1]) } };
   if (orderDesc || since) sq.orderBy = [{ field: { fieldPath: '_ts' }, direction: orderDesc ? 'DESCENDING' : 'ASCENDING' }];
   if (limit) sq.limit = limit;
   const j = (await fs(`${docsRoot()}:runQuery`, { method: 'POST', body: { structuredQuery: sq } })) as {
@@ -245,18 +248,31 @@ export type DataResponse =
       tasks: Record<string, Scalar>[];
       employees: Record<string, Scalar>[];
       log: Record<string, Scalar>[];
+      /** Ssenarilər (SPEC §6.5) — `changes`/`summary`/`revert` JSON sətri kimi; deltada `_deleted` ilə */
+      scenarios: Record<string, Scalar>[];
+      /** Yalnız bu istifadəçiyə ünvanlanmış bildirişlər */
+      notifications: Record<string, Scalar>[];
     };
 
-/** Tam yükləmə və ya `since`-dən sonrakı dəyişikliklər. */
-export async function readData(since: string | null): Promise<DataResponse> {
+const scenarioRow = (o: Doc) => ({ ...clean(o), id: o._id, _deleted: !!o._deleted });
+const notificationRow = (o: Doc) => ({ ...clean(o), id: o._id });
+const NOTIFICATION_LIMIT = 100;
+
+/**
+ * Tam yükləmə və ya `since`-dən sonrakı dəyişikliklər. `viewer` — bildirişlər yalnız ona aid olanlardır.
+ * Oxuma büdcəsi: dəyişiklik yoxdursa 1 (meta); delta 5 sorğu; tam yükləmə ≈ sənəd sayı.
+ */
+export async function readData(since: string | null, viewer = ''): Promise<DataResponse> {
   const meta = await getMeta();
   const ts = meta ? meta.updated : null;
   if (since && ts && since === ts) return { unchanged: true, ts, settings: settingsOf(meta) };
   if (since && ts) {
-    const [tasks, employees, log] = await Promise.all([
+    const [tasks, employees, log, scenarios, notifications] = await Promise.all([
       query('tasks', { since }),
       query('employees', { since }),
       query('log', { since, limit: 500 }),
+      query('scenarios', { since }),
+      query('notifications', { since }),
     ]);
     return {
       delta: true,
@@ -265,12 +281,16 @@ export async function readData(since: string | null): Promise<DataResponse> {
       tasks: tasks.map((t) => ({ ...clean(t), id: t.id || t._id, _deleted: !!t._deleted })),
       employees: employees.map((e) => ({ ...clean(e), name: e.name || e._id, _deleted: !!e._deleted })),
       log: log.map(logRow),
+      scenarios: scenarios.map(scenarioRow),
+      notifications: notifications.filter((n) => n.to === viewer).map(notificationRow),
     };
   }
-  const [tasks, employees, log] = await Promise.all([
+  const [tasks, employees, log, scenarios, notifications] = await Promise.all([
     listAll('tasks'),
     listAll('employees'),
     query('log', { orderDesc: true, limit: 300 }),
+    listAll('scenarios'),
+    viewer ? query('notifications', { eq: ['to', viewer], limit: 500 }) : Promise.resolve([]),
   ]);
   return {
     full: true,
@@ -279,7 +299,48 @@ export async function readData(since: string | null): Promise<DataResponse> {
     tasks: tasks.filter((t) => !t._deleted).map((t) => ({ ...clean(t), id: t.id || t._id })),
     employees: employees.filter((e) => !e._deleted).map((e) => ({ ...clean(e), name: e.name || e._id })),
     log: log.reverse().map(logRow),
+    scenarios: scenarios.filter((x) => !x._deleted).map(scenarioRow),
+    notifications: notifications
+      .sort((a, b) => String(b.ts).localeCompare(String(a.ts)))
+      .slice(0, NOTIFICATION_LIMIT)
+      .map(notificationRow),
   };
+}
+
+/* ---------- ssenarilər və bildirişlər (SPEC §6.5, §2) ---------- */
+export async function getDoc(coll: string, id: string): Promise<Doc | null> {
+  const d = await fs(`${docsRoot()}/${coll}/${encodeURIComponent(id)}`, { allow404: true });
+  return d ? fromDoc(d) : null;
+}
+export async function listScenarios(): Promise<Doc[]> {
+  return (await listAll('scenarios')).filter((x) => !x._deleted);
+}
+/** İstənilən kolleksiyaya yalnız verilən sahələri yazır (+ `_ts`, `_v`, `_deleted=false`); meta.updated yenilənir. */
+export const docUpsert = (coll: string, id: string, row: Record<string, unknown>) => upsertWrite(coll, id, row);
+export const docSoftDelete = (coll: string, id: string): FsWrite => ({
+  update: { name: docName(coll, id), fields: { _deleted: { booleanValue: true } } },
+  updateMask: { fieldPaths: ['_deleted'] },
+  updateTransforms: stampV,
+});
+/** Yazıları bir commit-də göndərir (meta.updated avtomatik — digər istifadəçilər deltada görür). */
+export async function commitWrites(writes: FsWrite[], logOps: Op[] = [], user = '', audit: Record<string, string> = {}) {
+  const all = [
+    ...writes,
+    ...buildWrites(logOps, user, undefined, audit).filter((w) => 'update' in w && !w.update.name.endsWith('/meta/main')),
+  ];
+  if (all.length) await commit(all);
+}
+/** Bildirişləri oxunmuş et — yalnız sahibinə aid olanlar (`to` yoxlanılır). */
+export async function markNotificationsRead(user: string, ids: string[] | 'all'): Promise<number> {
+  const mine =
+    ids === 'all'
+      ? (await query('notifications', { eq: ['to', user], limit: 500 })).filter((n) => !n.read)
+      : (await Promise.all(ids.map((id) => getDoc('notifications', id)))).filter(
+          (n): n is Doc => !!n && n.to === user && !n.read,
+        );
+  if (!mine.length) return 0;
+  await commit(mine.map((n) => upsertWrite('notifications', n._id, { read: true })));
+  return mine.length;
 }
 
 export async function readFullLog() {
@@ -329,11 +390,6 @@ async function commit(writes: FsWrite[], transaction?: string): Promise<void> {
   }
 }
 
-const opKey = (op: Op): string | null => {
-  if (op.t === 'log' || op.table === 'Settings') return null;
-  return String(op.t === 'delete' ? op.key : op.table === 'Tasks' ? op.row.id : op.row.name).trim();
-};
-
 /** Op-ları Firestore yazılarına çevirir (saf funksiya — testlənir). */
 export function buildWrites(
   ops: Op[],
@@ -376,71 +432,8 @@ export function buildWrites(
   return writes;
 }
 
-/* ---------- versiya ziddiyyəti (SPEC §4.3) ---------- */
-// Müqayisədə '' və null eynidir (toValue('') → null)
-const norm = (v: unknown) => (v === '' || v === undefined ? null : v);
-
-/**
- * Versiyalı op-ları serverdəki cari sənədlərlə müqayisə edir (saf funksiya).
- * - `v` cari `_v`-yə bərabərdir → qəbul.
- * - Fərqlidir, amma upsert-in dəyişdirdiyi sahələrin hamısı serverdə hələ `base` dəyərindədir
- *   (yəni başqası FƏRQLİ sahələri dəyişib) → səssiz birləşdirmə, qəbul.
- * - Əks halda → ziddiyyət; həmin sənədin yazısı və ona aid jurnal qeydləri atılır.
- * `v` olmayan op-lar (v1 klienti) yoxlanmadan qəbul olunur.
- */
-export function resolveVersions(
-  ops: Op[],
-  current: Map<string, Doc | null>,
-): { accepted: Op[]; conflicts: Conflict[]; versions: Record<string, number> } {
-  const conflicts: Conflict[] = [];
-  const versions: Record<string, number> = {};
-  const rejected = new Set<string>();
-  const state = new Map(current);
-  const kept: Op[] = [];
-  for (const op of ops) {
-    if (op.t === 'log' || op.table === 'Settings' || !('v' in op) || op.v === undefined) {
-      kept.push(op);
-      continue;
-    }
-    const key = opKey(op) as string;
-    const id = `${op.table}/${key}`;
-    const cur = state.get(id) ?? null;
-    const curV = Number(cur?._v) || 0;
-    const alive = cur && !cur._deleted;
-    let ok = op.v === curV;
-    if (!ok && op.t === 'upsert' && op.base && alive) ok = Object.entries(op.base).every(([f, b]) => norm(cur[f]) === norm(b));
-    // İdempotentlik: eyni partiya təkrar gəlibsə (məs. cavab gəldi, amma keş yenilənmədən səhifə bağlandı),
-    // sənəd artıq istənilən vəziyyətdədir → ziddiyyət deyil, yazmadan keç (jurnal qeydləri eyni id ilə zərərsizdir)
-    if (!ok) {
-      const applied =
-        op.t === 'delete'
-          ? !alive
-          : !!alive && Object.entries(op.row).every(([f, val]) => META_FIELDS.has(f) || norm(cur[f]) === norm(val));
-      if (applied) {
-        versions[id] = curV;
-        continue;
-      }
-    }
-    if (!ok) {
-      rejected.add(id);
-      const theirs = alive
-        ? (Object.fromEntries(Object.entries(cur).filter(([k]) => !k.startsWith('_'))) as Record<string, Scalar>)
-        : null;
-      conflicts.push({ table: op.table, key, v: curV, theirs, by: (cur?.updated_by as string) || null });
-      continue;
-    }
-    versions[id] = curV + 1;
-    const next: Doc =
-      op.t === 'delete'
-        ? { ...(cur ?? { _id: key }), _deleted: true, _v: curV + 1 }
-        : { ...(cur ?? { _id: key }), ...op.row, _deleted: false, _v: curV + 1 };
-    state.set(id, next);
-    kept.push(op);
-  }
-  // Rədd edilmiş tapşırıqlara aid jurnal qeydləri yazılmır (baş verməyən əməliyyat jurnala düşməsin)
-  const accepted = kept.filter((op) => !(op.t === 'log' && op.row.task_id && rejected.has(`Tasks/${String(op.row.task_id)}`)));
-  return { accepted, conflicts, versions };
-}
+/* ---------- versiya ziddiyyəti (SPEC §4.3) — məntiq shared/apply.ts-dədir (klient də işlədir) ---------- */
+export { resolveVersions };
 
 export type ApplyResult = { versions: Record<string, number>; conflicts: Conflict[] };
 

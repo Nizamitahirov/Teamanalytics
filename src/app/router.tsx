@@ -81,9 +81,24 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('../features/employees/EmployeeProfilePage')).EmployeeProfilePage }),
       },
       { path: 'settings', lazy: async () => ({ Component: (await import('../features/settings/SettingsPage')).SettingsPage }) },
+      {
+        path: 'scenarios',
+        lazy: async () => ({ Component: (await import('../features/scenarios/ScenariosPage')).ScenariosPage }),
+      },
+      {
+        path: 'scenarios/:id',
+        lazy: async () => ({ Component: (await import('../features/scenarios/ScenarioEditorPage')).ScenarioEditorPage }),
+      },
+      {
+        path: 'optimization',
+        lazy: async () => ({ Component: (await import('../features/optimization/OptimizationPage')).OptimizationPage }),
+      },
+      { path: 'health', lazy: async () => ({ Component: (await import('../features/health/HealthPage')).HealthPage }) },
       { path: 'log', lazy: async () => ({ Component: (await import('../features/log/LogPage')).LogPage }) },
       // Hələ hazır olmayan bölmələr
-      ...NAV.filter((n) => !['/', '/tasks', '/employees', '/log', '/settings'].includes(n.path)).map((n) => ({
+      ...NAV.filter(
+        (n) => !['/', '/tasks', '/employees', '/scenarios', '/optimization', '/health', '/log', '/settings'].includes(n.path),
+      ).map((n) => ({
         path: n.path.slice(1) + '/*',
         element: <PlaceholderPage />,
       })),

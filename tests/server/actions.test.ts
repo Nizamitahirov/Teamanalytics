@@ -172,3 +172,58 @@ describe('axtarış', () => {
     expect(score('Aidiyyatı', 'zz')).toBe(0);
   });
 });
+
+describe('optimizasiya və data sağlamlığı əməliyyatları (Mərhələ 7)', () => {
+  it('portfel: hədəf saat + rüb; "Tamamlandı" saatı əvəz edir, geri çıxanda bərpa olunur', async () => {
+    const id = 'B-60';
+    const h = S.getState().data.tasks.find((x) => x.id === id)!.hours;
+    expect(
+      A.saveOptimization(id, { after_opt: 1, due_quarter: '2027-Q1', automation_note: 'RPA', automation: 'candidate' }),
+    ).toBe(true);
+    expect(A.setAutomation(id, 'done', true)).toBe(true);
+    await idle();
+    expect(doc(`tasks/${id}`)).toMatchObject({
+      automation: 'done',
+      hours: '1',
+      opt_before: h,
+      due_quarter: '2027-Q1',
+      automation_note: 'RPA',
+    });
+    expect(logs().some((l) => l.action === 'Optimizasiya' && l.task_id === id && l.to === 'done')).toBe(true);
+    expect(A.setAutomation(id, 'in_progress')).toBe(true);
+    await idle();
+    expect(doc(`tasks/${id}`)).toMatchObject({ automation: 'in_progress', opt_before: null });
+    expect(Number(doc(`tasks/${id}`).hours)).toBe(h);
+  });
+
+  it('v1 yazması (tam sətir, v2 sahələrisiz) v2 sahələrini silmir', async () => {
+    const t = S.getState().data.tasks.find((x) => x.id === 'B-60')!;
+    const c = await client(api.base);
+    await c.request('/api/ops', {
+      json: {
+        ops: [
+          {
+            t: 'upsert',
+            table: 'Tasks',
+            row: { id: 'B-60', process: t.process, task: t.task, hours: t.hours, is_cancelled: false },
+          },
+        ],
+      },
+    });
+    expect(doc('tasks/B-60')).toMatchObject({ automation: 'in_progress', due_quarter: '2027-Q1' });
+  });
+
+  it('hesablanmış saat, saxla (health_ignore), ID düzəlişi', async () => {
+    expect(A.useCalculatedHours('P-29')).toBe(true);
+    A.ignoreFinding({ key: 'name_dup:Farida|Fəridə', kind: 'name_dup', tasks: [], employees: ['Farida', 'Fəridə'], data: {} });
+    expect(A.renameTask('P-x71', 'T-x71fix')).toBe(true);
+    await idle();
+    expect(Number(doc('tasks/P-29').hours)).toBe(40);
+    expect(doc('employees/Farida').health_ignore).toBe('name_dup:Farida|Fəridə');
+    expect(doc('tasks/P-x71')._deleted).toBe(true);
+    expect(doc('tasks/T-x71fix')).toMatchObject({
+      task: 'Strukturun Əmasda yaradılması və dəyişikliyin edilməsi',
+      _deleted: false,
+    });
+  });
+});

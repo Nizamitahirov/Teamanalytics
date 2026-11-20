@@ -9,6 +9,8 @@
   --ink-line: rgba(255, 255, 255, 0.08);
   --grad: linear-gradient(120deg, #e30613 0%, #f23a1c 42%, #ff6b17 78%, #ff9524 100%);
   --brand: #f2501e;
+  /* brend rəngində MƏTN (kontrast ≥ 4,5:1 — WCAG AA); --brand yalnız doldurma/ikon üçün */
+  --brand-text: #b93a0b;
   --focus: #ff6b17;
 
   /* səthlər və mətn — açıq */
@@ -87,6 +89,7 @@
   color-scheme: dark;
   --bg: #0b0c14;
   --surface: #12141f;
+  --brand-text: #ff8a5b;
   --surface-2: #181b28;
   --text: #edeef3;
   --text-2: #b9bccb;
@@ -112,6 +115,7 @@
     color-scheme: dark;
     --bg: #0b0c14;
     --surface: #12141f;
+    --brand-text: #ff8a5b;
     --surface-2: #181b28;
     --text: #edeef3;
     --text-2: #b9bccb;

@@ -1,10 +1,11 @@
 // Lokal keş (SPEC §4.3): IndexedDB, açar `wfp.v2`. Data + göndərilməmiş növbə saxlanır —
 // səhifə dərhal açılır, offline edilən dəyişikliklər brauzer bağlansa da itmir.
-import type { Op } from '../../shared/schema';
+import type { Notification, Op, Scenario } from '../../shared/schema';
 import type { DataState } from '../../shared/model';
 
 export const CACHE_KEY = 'wfp.v2';
-export const CACHE_VERSION = 1;
+// 2: ssenarilər və bildirişlər də keşdədir (Mərhələ 6) — köhnə keş atılır, tam yükləmə olur
+export const CACHE_VERSION = 2;
 
 export type CachedState = {
   version: typeof CACHE_VERSION;
@@ -12,6 +13,8 @@ export type CachedState = {
   lastTs: string | null;
   data: DataState;
   queue: Op[][];
+  scenarios?: Scenario[];
+  notifications?: Notification[];
 };
 
 export interface Persist {

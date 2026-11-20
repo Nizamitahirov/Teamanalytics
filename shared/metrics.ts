@@ -9,7 +9,7 @@ export type Filters = { company?: string | null; activity?: string | null };
 export type LoadLevel = 'critical' | 'warning' | 'idle' | 'good';
 
 /** v2 sahələri (Mərhələ 7+) — hələ datada olmaya bilər. */
-type TaskExt = TaskDoc & { automation?: 'none' | 'candidate' | 'in_progress' | 'done' };
+type TaskExt = TaskDoc;
 type EmployeeExt = EmployeeDoc & { capacity_overrides?: Record<string, number> };
 export type Absence = { employee: string; hours: number; year?: number };
 
@@ -59,6 +59,8 @@ export type Metrics = {
   transfers: { count: number; hours: number };
   /** §7.8 */
   optPotential: number;
+  /** §7.8 Realizə olunmuş: `automation = done` işlərin köhnə saatı − yeni saat */
+  optRealized: number;
   byCompany: Record<string, number>;
   byActivity: Record<string, number>;
   /** §7.11 */
@@ -68,6 +70,15 @@ export type Metrics = {
 /** §7.1 Effektiv saat */
 export const effHours = (t: TaskExt, view: View = 'current') =>
   (view === 'opt' && t.after_opt != null ? t.after_opt : t.hours) || 0;
+
+/**
+ * §7.8 Bir işin realizə olunmuş qənaəti. "Tamamlandı" edilərkən saat əvəz olunubsa köhnə saat `opt_before`-da
+ * saxlanır (jurnal 2 000 qeydlə məhdud olduğu üçün tapşırığın özündə — ADR-007); əvəz olunmayıbsa `hours − after_opt`.
+ */
+export function realizedSaving(t: Pick<TaskDoc, 'hours' | 'after_opt' | 'opt_before'>): number {
+  if (t.opt_before != null) return Math.max(0, t.opt_before - (t.hours || 0));
+  return t.after_opt != null ? Math.max(0, (t.hours || 0) - t.after_opt) : 0;
+}
 
 /** §7.4 Səviyyə */
 export function levelOf(load: number, warnPct: number): LoadLevel {
@@ -88,6 +99,19 @@ export function filterScope(input: Pick<MetricsInput, 'tasks' | 'employees'>, fi
   return { emp, activityOf, scope, active: scope.filter((t) => !t.is_cancelled) };
 }
 
+/** §7.3 Tutum: `N × fte × (capacity_override ?? 1) − məzuniyyət saatları`. Siyahıda olmayan ad → 1 ştat. */
+export function capacityFn(input: Pick<MetricsInput, 'settings' | 'absences'>, year: number) {
+  const N = input.settings.norm;
+  const absenceHours = new Map<string, number>();
+  for (const a of input.absences ?? [])
+    if (a.year == null || a.year === year) absenceHours.set(a.employee, (absenceHours.get(a.employee) ?? 0) + a.hours);
+  return (e: EmployeeExt | undefined) => {
+    const fte = e ? e.fte : 1;
+    const override = e?.capacity_overrides?.[String(year)] ?? 1;
+    return Math.max(0, N * fte * override - (e ? (absenceHours.get(e.name) ?? 0) : 0));
+  };
+}
+
 export function computeMetrics(
   input: MetricsInput,
   { view = 'current', filters = {} }: { view?: View; filters?: Filters } = {},
@@ -97,15 +121,7 @@ export function computeMetrics(
   const year = input.year ?? new Date().getFullYear();
   const { emp, activityOf, scope, active } = filterScope(input, filters);
 
-  // §7.3 Tutum
-  const absenceHours = new Map<string, number>();
-  for (const a of input.absences ?? [])
-    if (a.year == null || a.year === year) absenceHours.set(a.employee, (absenceHours.get(a.employee) ?? 0) + a.hours);
-  const capOf = (e: EmployeeExt | undefined) => {
-    const fte = e ? e.fte : 1;
-    const override = e?.capacity_overrides?.[String(year)] ?? 1;
-    return Math.max(0, N * fte * override - (e ? (absenceHours.get(e.name) ?? 0) : 0));
-  };
+  const capOf = capacityFn(input, year);
 
   // §7.4 Yük — cari icraçı üzrə
   const rows = new Map<string, { hours: number; tasks: number }>();
@@ -153,6 +169,8 @@ export function computeMetrics(
     .filter((t) => t.after_opt != null && t.automation !== 'done')
     .reduce((s, t) => s + ((t.hours || 0) - (t.after_opt as number)), 0);
 
+  const optRealized = active.filter((t) => t.automation === 'done').reduce((s, t) => s + realizedSaving(t), 0);
+
   const byCompany: Record<string, number> = {};
   const byActivity: Record<string, number> = {};
   const byProcess = new Map<string, { hours: number; owners: Set<string> }>();
@@ -185,6 +203,7 @@ export function computeMetrics(
     cancelled: { count: cancelledList.length, hours: cancelledList.reduce((s, t) => s + (t.hours || 0), 0) },
     transfers: { count: transferList.length, hours: transferList.reduce((s, t) => s + effHours(t, view), 0) },
     optPotential,
+    optRealized,
     byCompany,
     byActivity,
     singleOwnerRisks,

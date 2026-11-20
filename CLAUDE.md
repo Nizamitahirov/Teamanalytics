@@ -22,16 +22,21 @@ Vercel: `public/` statik (v1), `api/*.ts` Node serverless funksiya (Vercel TS-i 
 ```
 public/                 v1 klienti (dəyişməz; Mərhələ 10-da legacy/ olacaq)
   index.html login.html app.js styles.css vendor/
-api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health
+api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health, scenarios, notifications
 server/                 Server məntiqi (Vercel-dən asılı deyil, testlənir)
   firestore.ts          Firestore REST klienti; upsert = updateMask, `_v` increment, tranzaksiya + resolveVersions (ziddiyyət)
   auth.ts               PBKDF2 parol, sessiya (__Host- cookie, sv), Firestore kilidi, parol siyasəti, rollar, ip_hash
+  scenarios.ts          Ssenari əməliyyatları + təsdiq axını + bildirişlər (ADR-006)
   http.ts               requireUser(minRole) — RBAC + CSRF + limit; send/sendError ({error, code}), parseBody (Zod)
   commonPasswords.ts    Ən çox yayılmış 1000 parol (generasiya olunub, mənbə faylda)
 shared/                 Həm server, həm klient
   constants.ts          Sabitlər (Zod-suz — klient bundle-ı üçün)
   schema.ts             Zod: Task, Employee, LogEntry, Settings, Role, Op (+ v, base), OpsBody, Conflict, OpsResponse
   model.ts              normalizeTask/Employee, curOwner, statusOf, diffOps (yalnız dəyişən sahələr + v/base)
+  apply.ts              Op-ların lokal tətbiqi, compileOps, resolveVersions (server də buradan), invertOps
+  scenario.ts           Ssenari dəyişiklik qurucuları + scenarioImpact; scenarioDoc.ts — sənəd → Scenario
+  rebalance.ts          SPEC §8 balanslama alqoritmi
+  optimization.ts       Optimizasiya portfeli (§6.6); health.ts — Data sağlamlığı yoxlamaları (§6.8)
   metrics.ts            SPEC §7 formulaları — TƏK MƏNBƏ (Panel və hesabatlar buradan); filterScope
   dashboard.ts          Panel vidjetlərinin datası (bullet, Sankey, treemap, heatmap, waterfall, Pareto, histogram, ştat cədvəli)
   search.ts             Axtarış normallaşdırması (ə/e, ı/i, ö/o, ü/u, ş/s, ç/c, ğ/g)
@@ -41,8 +46,8 @@ shared/                 Həm server, həm klient
   version.ts            APP_VERSION (/api/health, UI)
 src/                    v2 React klienti (Vite, React 19, React Router, CSS Modules, Lucide)
   app/                  router, Shell (sol menyu / aşağı naviqasiya, üst panel), auth konteksti, useCan (rol), nav
-  store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), actions (ötür/ləğv/düzəliş/birləşdir), persist (IndexedDB), useSyncLoop
-  features/             auth (giriş, məcburi parol), settings (hesab, ümumi, istifadəçilər), dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), log, palette (Ctrl+K, qısayollar), sync, placeholder
+  store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), actions (ötür/ləğv/düzəliş/birləşdir), scenarioActions (ssenari: önizləmə/tətbiq/geri alma/təsdiq), persist (IndexedDB), useSyncLoop
+  features/             auth (giriş, məcburi parol), settings (hesab, ümumi, istifadəçilər), dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), scenarios (siyahı, redaktor, dəyişiklik/tətbiq dialoqları), notifications, optimization (Kanban), health (data sağlamlığı), log, palette (Ctrl+K, qısayollar), sync, placeholder
   components/           Button, IconButton, Modal, Drawer, Toaster, EmployeePicker (combobox), Badges, Form.module.css, EmptyState, Skeleton
   charts/               ECharts (modul, SVG renderer), theme.ts (açıq/tünd), options/*.ts (saf: data → option + cədvəl + xülasə), ChartFrame
   hooks/                useFocusTrap, useMedia, useMetrics
@@ -98,10 +103,12 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 
 | Kolleksiya | Sənəd ID | Sahələr |
 |---|---|---|
-| `tasks` | `id` (məs. `B-25`, `P-17`, `T-…`) | `id, company, process, category, task, description, owner_before, owner_after, min_per_key, annual_freq, unit, hours, after_opt, is_cancelled, updated_at, updated_by` + sistem: `_ts`, `_deleted`, `_v` |
-| `employees` | `name` (dəqiq ad, məs. `Şöbə əməkdaşları`) | `name, company, activity, fte, is_group, active` + `_ts`, `_deleted`, `_v` |
-| `log` | klientin yaratdığı `L-…` id | `ts, user, action, task_id, task_label, from, to, comment` + `_ts` |
-| `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn` (ayarlar) |
+| `tasks` | `id` (məs. `B-25`, `P-17`, `T-…`) | `id, company, process, category, task, description, owner_before, owner_after, min_per_key, annual_freq, unit, hours, after_opt, is_cancelled, updated_at, updated_by` + v2: `automation, automation_note, due_quarter, opt_before, opt_done_at, health_ignore` + sistem: `_ts`, `_deleted`, `_v` |
+| `employees` | `name` (dəqiq ad, məs. `Şöbə əməkdaşları`) | `name, company, activity, fte, is_group, active` + v2: `health_ignore` + `_ts`, `_deleted`, `_v` |
+| `log` | klientin yaratdığı `L-…` id | `ts, user, action, task_id, task_label, from, to, comment, group` + `_ts` (`group` — ssenari id-si) |
+| `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn`, `approval` (0/1), `approval_hours` (ayarlar) |
+| `scenarios` | `S-…` | `name, description, status (draft/pending/applied/archived), changes/summary/revert (JSON sətri), created_by/at, submitted_*, decided_*, decision_comment, applied_*, reverted_*` + `_ts`, `_deleted`, `_v` |
+| `notifications` | `N-…` | `to, kind, text, link, read, ts` + `_ts` — yalnız sahibinə göndərilir |
 | `users` | ad kiçik hərflə (`ecosystem`) | `name, salt, hash, iter, active, created_by, role, session_version, must_change_password, failed_attempts, locked_until, last_login` — heş/duz **heç vaxt klientə göndərilmir** |
 
 - `_ts`: hər yazmada server vaxtı (`REQUEST_TIME` transform). Delta sinxronun əsası.
@@ -173,5 +180,5 @@ Qadağalar:
 - Tombstone-lar və jurnal sonsuz böyüyür; arxivləmə yoxdur.
 - ~~`applyOps` upsert-də tam sənədi əvəz edir~~ — **Mərhələ 1-də düzəldilib** (`updateMask`, SPEC §15.3; test: `tests/server/api.test.ts`).
 - Tarixi snapshot yoxdur → trend qrafikləri mümkün deyil.
-- Data keyfiyyəti: ad dublikatları (Farida/Fəridə, Kamila/Kamilə), təkrar sətir (`B-1770271295121` = `B-44`), id-siz sətir (`P-x71`), `P-29`-da saat uyğunsuzluğu — ətraflı `docs/CONTEXT.md`.
+- Data keyfiyyəti: ad dublikatları (Farida/Fəridə, Kamila/Kamilə), təkrar sətirlər (`B-1770271295121` = `B-44`, `B-222` = `B-30`, `B-224` = `B-32`), id-siz sətir (`P-x71`), `P-29`-da saat uyğunsuzluğu — ətraflı `docs/CONTEXT.md`; v2-də `/health` səhifəsi aşkarlayır və düzəltməyə imkan verir (ADR-007).
 - Bütün bunlar `SPEC.md`-də həll olunur.

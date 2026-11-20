@@ -9,12 +9,12 @@ export default async function handler(req: Req, res: Res) {
   if (!user) return;
   try {
     const since = new URL(req.url || '/', 'http://x').searchParams.get('since') || null;
-    let data = await readData(since);
+    let data = await readData(since, user.name);
     // Baza boşdursa ilkin data. `ts`-ə baxmırıq: ilk addım parol dəyişməsi olarsa jurnal yazısı meta.updated qoyur
     // (əvvəl bu halda seed heç vaxt olmurdu). seed() özü tasks kolleksiyasını yoxlayır — tombstone varsa yazmır.
     if ('full' in data && data.full && !data.tasks.length && !data.employees.length) {
       const initial = JSON.parse(await readFile(new URL('../data/seed.json', import.meta.url), 'utf8'));
-      if (await seed(initial, user.name)) data = await readData(null);
+      if (await seed(initial, user.name)) data = await readData(null, user.name);
     }
     send(res, 200, { user: user.name, role: user.role, ...data });
   } catch (e) {

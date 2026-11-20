@@ -506,10 +506,10 @@ Hər mərhələ: branch, PR, CI yaşıl, QM-lər yoxlanıb, sahibə ekran şəki
 | 1 | **Təməl** ✅ (ADR-001) | Vite+React+TS skeleti, tokenlər, shell (menyu, üst panel), login, `server/` TS-ə köçürmə, `updateMask` düzəlişi (§15.3), Zod sxemləri, mock server TS, CI, qızıl testlər v1 məntiqinə qarşı | CI yaşıl; canlı sayt v1 ilə işləyir; qızıl testlər keçir |
 | 2 | **Data qatı** ✅ (ADR-002) | Zustand store, sync mühərriki (v1 davranışı + `_v` ziddiyyət + IndexedDB + offline növbə), undo/redo, `shared/metrics.ts` | Qızıl rəqəmlər v2 ilə; iki istifadəçi ziddiyyəti e2e |
 | 3 | **Tapşırıqlar + Əməkdaşlar** ✅ (ADR-003) | Data grid, drawer, profil səhifəsi, ötürmə/ləğv/toplu, sətirdə redaktə, komanda paleti | v1 e2e ssenariləri v2-də keçir |
-| 4 | **Panel** — icra olunub, PR gözləyir (ADR-004) | §6.2 bütün vidjetlər, ECharts temaları, "Cədvəl kimi bax", tünd rejim | Vizual testlər; a11y 0 ciddi |
-| 5 | **Rollar + təhlükəsizlik** — icra olunub, PR gözləyir (ADR-005) | RBAC, sessiya versiyası, kilid, məcburi parol dəyişmə, CSP, audit | RBAC matrisi testləri |
-| 6 | **Ssenarilər + Balanslama** | §6.5, §8, təsdiq axını, bildirişlər | Ssenari canlı dataya yazmır (test) |
-| 7 | **Optimizasiya + Data sağlamlığı** | §6.6, §6.8 | Seed tapıntıları aşkarlanır |
+| 4 | **Panel** ✅ (ADR-004) | §6.2 bütün vidjetlər, ECharts temaları, "Cədvəl kimi bax", tünd rejim | Vizual testlər; a11y 0 ciddi |
+| 5 | **Rollar + təhlükəsizlik** ✅ (ADR-005) | RBAC, sessiya versiyası, kilid, məcburi parol dəyişmə, CSP, audit | RBAC matrisi testləri |
+| 6 | **Ssenarilər + Balanslama** — icra olunub, PR gözləyir (ADR-006) | §6.5, §8, təsdiq axını, bildirişlər | Ssenari canlı dataya yazmır (test) |
+| 7 | **Optimizasiya + Data sağlamlığı** — icra olunub, PR gözləyir (ADR-007) | §6.6, §6.8 | Seed tapıntıları aşkarlanır |
 | 8 | **Hesabatlar + Excel v2** | §6.7, §9 | PDF 2–4 səhifə, import diff önizləmə |
 | 9 | **Əməliyyat** | Cron (snapshot, backup, təmizlik), trend vidjetləri, health v2, xəta izləmə, PWA | Cron lokal testdə; backup→bərpa e2e |
 | 10 | **Keçid** | Miqrasiya skripti, v1 → v2 keçidi, `legacy/`, README/CLAUDE.md yeniləmə, sahibə təlimat | Canlıda qızıl rəqəmlər eyni; Lighthouse hədəfləri |
