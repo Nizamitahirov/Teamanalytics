@@ -58,6 +58,8 @@ type Props = {
   /** Cədvəlin hündürlüyü (virtual scroll konteyneri) */
   height?: string;
   empty: ReactNode;
+  /** Yalnız baxış (viewer): seçim, əməliyyat sütunu və sətirdə redaktə yoxdur */
+  readOnly?: boolean;
 };
 
 /**
@@ -77,14 +79,15 @@ export function TaskTable({
   onCancel,
   height,
   empty,
+  readOnly = false,
 }: Props) {
   const { t } = useI18n();
   const mobile = useMedia('(max-width: 699.98px)');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<{ id: string; field: 'hours' | 'owner' } | null>(null);
 
-  const columns = useMemo<ColumnDef<TaskDoc>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<TaskDoc>[]>(() => {
+    const all: ColumnDef<TaskDoc>[] = [
       {
         id: 'select',
         enableSorting: false,
@@ -182,18 +185,20 @@ export function TaskTable({
               >
                 {curOwner(row.original) || '—'}
               </Link>
-              <button
-                type="button"
-                className={s.editBtn}
-                aria-label={t('tasks.changeOwner', { name: row.original.task })}
-                title={t('tasks.changeOwnerShort')}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditing({ id: row.original.id, field: 'owner' });
-                }}
-              >
-                <Pencil size={12} aria-hidden="true" />
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  className={s.editBtn}
+                  aria-label={t('tasks.changeOwner', { name: row.original.task })}
+                  title={t('tasks.changeOwnerShort')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditing({ id: row.original.id, field: 'owner' });
+                  }}
+                >
+                  <Pencil size={12} aria-hidden="true" />
+                </button>
+              )}
             </span>
           ),
       },
@@ -247,6 +252,8 @@ export function TaskTable({
                 toast(t('toast.saved'), { action: { label: t('top.undo'), fn: () => dataStore.getState().undoLast() } });
               }}
             />
+          ) : readOnly ? (
+            <b>{formatNumber(row.original.hours, 1)}</b>
           ) : (
             <button
               type="button"
@@ -289,9 +296,9 @@ export function TaskTable({
         header: () => <span className="visually-hidden">{t('tasks.actions')}</span>,
         cell: ({ row }) => <RowActions task={row.original} onTransfer={onTransfer} onCancel={onCancel} onOpen={onOpen} />,
       },
-    ],
-    [t, editing, onOpen, onTransfer, onCancel],
-  );
+    ];
+    return all.filter((c) => !readOnly || (c.id !== 'select' && c.id !== 'actions'));
+  }, [t, editing, onOpen, onTransfer, onCancel, readOnly]);
 
   const visibility = useMemo<VisibilityState>(() => Object.fromEntries(hidden.map((h) => [h, false])), [hidden]);
   const table = useReactTable({
@@ -336,13 +343,15 @@ export function TaskTable({
                 className={`${s.card} ${x.is_cancelled ? s.cancelled : ''}`}
               >
                 <div className={s.cardHead}>
-                  <input
-                    type="checkbox"
-                    className={s.chk}
-                    aria-label={t('tasks.selectRow', { name: x.task })}
-                    checked={row.getIsSelected()}
-                    onChange={row.getToggleSelectedHandler()}
-                  />
+                  {!readOnly && (
+                    <input
+                      type="checkbox"
+                      className={s.chk}
+                      aria-label={t('tasks.selectRow', { name: x.task })}
+                      checked={row.getIsSelected()}
+                      onChange={row.getToggleSelectedHandler()}
+                    />
+                  )}
                   <button type="button" className={s.taskBtn} onClick={() => onOpen(x.id)}>
                     <span className={s.title}>{x.task}</span>
                     <span className={s.sub}>{x.process}</span>
@@ -357,7 +366,7 @@ export function TaskTable({
                     {formatNumber(x.hours, 1)} {t('unit.hours')}
                   </span>
                 </div>
-                <RowActions task={x} onTransfer={onTransfer} onCancel={onCancel} onOpen={onOpen} />
+                {!readOnly && <RowActions task={x} onTransfer={onTransfer} onCancel={onCancel} onOpen={onOpen} />}
               </li>
             );
           })}

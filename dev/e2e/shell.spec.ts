@@ -1,4 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { ADMIN_PW, freshDb } from './helpers.js';
+
+test.beforeAll(async () => {
+  await freshDb();
+});
 
 // v2 təməli: giriş, qabıq, naviqasiya, mövzu, mobil naviqasiya, çıxış.
 // Ekran şəkilləri (1440 / 820 / 390, açıq/tünd) → dev/e2e-shots/v2-*.png (PR üçün).
@@ -8,7 +13,7 @@ async function login(page: Page) {
   await page.goto('/');
   await expect(page).toHaveURL(/\/login$/);
   await page.getByLabel('İstifadəçi adı').fill('Ecosystem');
-  await page.getByLabel('Parol', { exact: true }).fill('Ecosystem');
+  await page.getByLabel('Parol', { exact: true }).fill(ADMIN_PW);
   await page.getByRole('button', { name: 'Daxil ol' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'İş yükü və ştat planlaması' })).toBeVisible();
 }
@@ -21,7 +26,7 @@ test('sessiyasız istifadəçi girişə yönəldilir, yanlış parol ümumi mesa
   await page.getByRole('button', { name: 'Daxil ol' }).click();
   await expect(page.getByRole('alert')).toHaveText('Ad və ya parol yanlışdır');
   // Girişdən sonra əvvəl istənən səhifəyə qayıdır
-  await page.getByLabel('Parol', { exact: true }).fill('Ecosystem');
+  await page.getByLabel('Parol', { exact: true }).fill(ADMIN_PW);
   await page.getByRole('button', { name: 'Daxil ol' }).click();
   await expect(page).toHaveURL(/\/tasks$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Tapşırıqlar' })).toBeVisible();

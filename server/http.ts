@@ -1,13 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { z } from 'zod';
-import { readCookie, verifySession } from './auth.js';
+import { hasRole, ipHash, readSessionCookie, validateSession, type UserInfo } from './auth.js';
+import type { Role } from '../shared/schema.js';
 
 // Vercel Node funksiyası req.body-ni artıq parse edə bilər; lokal mock serverdə axından oxuyuruq
 export type Req = IncomingMessage & { body?: unknown };
 export type Res = ServerResponse;
 export type Handler = (req: Req, res: Res) => unknown | Promise<unknown>;
 
-export function send(res: Res, status: number, obj: unknown, headers: Record<string, string> = {}): void {
+export function send(res: Res, status: number, obj: unknown, headers: Record<string, string | string[]> = {}): void {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
@@ -18,10 +19,69 @@ export function send(res: Res, status: number, obj: unknown, headers: Record<str
 /** Xəta cavabı: `{ error: az mətn, code: maşın kodu }` (SPEC §4.4). */
 export const sendError = (res: Res, status: number, code: string, error: string) => send(res, status, { error, code });
 
-export async function requireUser(req: Req, res: Res): Promise<string | null> {
-  const user = await verifySession(readCookie(req.headers.cookie)).catch(() => null);
+/**
+ * CSRF (SPEC §10): dəyişiklik edən sorğularda brauzerin `Sec-Fetch-Site` / `Origin` başlıqları başqa sayt göstərirsə rədd et.
+ * Başlıqsız sorğular (brauzer olmayan klientlər — cookie-ni avtomatik göndərmirlər) buraxılır.
+ */
+export function csrfOk(req: Req): boolean {
+  if (req.method === 'GET' || req.method === 'HEAD') return true;
+  const site = String(req.headers['sec-fetch-site'] ?? '');
+  if (site && site !== 'same-origin' && site !== 'none') return false;
+  const origin = req.headers.origin;
+  if (origin) {
+    try {
+      const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? '');
+      if (new URL(origin).host !== host) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+/* ---------- sorğu limiti: istifadəçi başına 300/dəq (instansiya yaddaşında — SPEC §10) ---------- */
+const RATE = 300;
+const hits = new Map<string, { n: number; t: number }>();
+function rateOk(key: string, now = Date.now()): boolean {
+  const h = hits.get(key);
+  if (!h || now - h.t > 60_000) {
+    hits.set(key, { n: 1, t: now });
+    return true;
+  }
+  h.n++;
+  return h.n <= RATE;
+}
+/** Yalnız testlər üçün. */
+export const _resetRate = () => hits.clear();
+
+export const clientIp = (req: Req) =>
+  String(req.headers['x-forwarded-for'] || '')
+    .split(',')[0]
+    .trim() ||
+  req.socket?.remoteAddress ||
+  'x';
+export const requestIpHash = (req: Req) => ipHash(clientIp(req));
+
+/**
+ * Sessiya + rol yoxlaması (RBAC serverdədir — klientdə gizlətmə yalnız UX-dir).
+ * 401 — sessiya yoxdur/etibarsızdır; 403 — rol çatmır və ya CSRF; 429 — limit.
+ */
+export async function requireUser(req: Req, res: Res, min: Role = 'viewer'): Promise<UserInfo | null> {
+  if (!csrfOk(req)) {
+    sendError(res, 403, 'csrf', 'Sorğu başqa saytdan gəlib və rədd edildi');
+    return null;
+  }
+  const user = await validateSession(readSessionCookie(req.headers.cookie)).catch(() => null);
   if (!user) {
     sendError(res, 401, 'unauthorized', 'Giriş tələb olunur');
+    return null;
+  }
+  if (!rateOk(user.id)) {
+    sendError(res, 429, 'rate_limited', 'Çox sayda sorğu. Bir dəqiqə sonra yenidən cəhd edin.');
+    return null;
+  }
+  if (!hasRole(user.role, min)) {
+    sendError(res, 403, 'forbidden', 'Bu əməliyyat üçün icazəniz yoxdur');
     return null;
   }
   return user;

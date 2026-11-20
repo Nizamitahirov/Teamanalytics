@@ -7,6 +7,7 @@ import { storage } from '../../lib/storage';
 import { toast } from '../../lib/toast';
 import { actions, dataStore, useData } from '../../store';
 import { useMetrics } from '../../hooks/useMetrics';
+import { useCan } from '../../app/useCan';
 import { Button } from '../../components/Button';
 import { Modal } from '../../components/Modal';
 import { Skeleton } from '../../components/Skeleton';
@@ -41,6 +42,7 @@ export function TasksPage() {
   const employees = useData((st) => st.data.employees);
   const norm = useData((st) => st.data.settings.norm);
   const { m } = useMetrics();
+  const { canEdit } = useCan();
 
   const filter: TaskFilter = {
     q: params.get('q') ?? '',
@@ -206,9 +208,11 @@ export function TasksPage() {
             </div>
           )}
         </div>
-        <Button variant="primary" onClick={() => open('new')}>
-          <Plus size={16} aria-hidden="true" /> {t('task.new')}
-        </Button>
+        {canEdit && (
+          <Button variant="primary" onClick={() => open('new')}>
+            <Plus size={16} aria-hidden="true" /> {t('task.new')}
+          </Button>
+        )}
       </div>
 
       <div className={s.chips} role="group" aria-label={t('tasks.quick')}>
@@ -230,7 +234,7 @@ export function TasksPage() {
         )}
       </div>
 
-      {selectedIds.length > 0 ? (
+      {canEdit && selectedIds.length > 0 ? (
         <div className={s.bulk} role="region" aria-label={t('tasks.bulk')}>
           <strong>{t('tasks.selected', { n: selectedIds.length, h: fmtHours(selectedHours) })}</strong>
           <Button size="sm" onClick={() => setDialog({ kind: 'transfer', ids: selectedIds })}>
@@ -264,6 +268,7 @@ export function TasksPage() {
       )}
 
       <TaskTable
+        readOnly={!canEdit}
         rows={rows}
         sorting={sorting}
         onSortingChange={(st) => setParam({ sort: st[0] ? `${st[0].desc ? '-' : ''}${st[0].id}` : null })}
@@ -277,7 +282,7 @@ export function TasksPage() {
         empty={t('tasks.empty')}
       />
 
-      {openId && (
+      {openId && (openId !== 'new' || canEdit) && (
         <TaskDrawer
           key={openId}
           id={openId}

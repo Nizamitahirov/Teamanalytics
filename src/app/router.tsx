@@ -4,6 +4,8 @@ import { useAuth } from './auth';
 import { Shell } from './Shell';
 import { NAV } from './nav';
 import { LoginPage } from '../features/auth/LoginPage';
+import { ForcedPasswordPage } from '../features/auth/ForcedPasswordPage';
+import { Toaster } from '../components/Toaster';
 import { PlaceholderPage } from '../features/placeholder/PlaceholderPage';
 
 import { NotFoundPage } from '../features/placeholder/NotFoundPage';
@@ -40,6 +42,14 @@ function RequireAuth() {
         {state.message}
       </EmptyState>
     );
+  // Məcburi parol dəyişməsi (SPEC §10): dəyişmədən tətbiqə keçmək olmur
+  if (state.me.mustChange)
+    return (
+      <>
+        <ForcedPasswordPage name={state.me.user.name} />
+        <Toaster />
+      </>
+    );
   return <Shell me={state.me} />;
 }
 
@@ -70,9 +80,10 @@ export const router = createBrowserRouter([
         path: 'employees/:name',
         lazy: async () => ({ Component: (await import('../features/employees/EmployeeProfilePage')).EmployeeProfilePage }),
       },
+      { path: 'settings', lazy: async () => ({ Component: (await import('../features/settings/SettingsPage')).SettingsPage }) },
       { path: 'log', lazy: async () => ({ Component: (await import('../features/log/LogPage')).LogPage }) },
       // Hələ hazır olmayan bölmələr
-      ...NAV.filter((n) => !['/', '/tasks', '/employees', '/log'].includes(n.path)).map((n) => ({
+      ...NAV.filter((n) => !['/', '/tasks', '/employees', '/log', '/settings'].includes(n.path)).map((n) => ({
         path: n.path.slice(1) + '/*',
         element: <PlaceholderPage />,
       })),

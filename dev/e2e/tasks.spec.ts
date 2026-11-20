@@ -1,4 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { ADMIN_PW, createUser, freshDb } from './helpers.js';
+
+test.beforeAll(async () => {
+  await freshDb();
+});
 
 // Mərhələ 3 QM: v1 e2e ssenariləri (dev/e2e.py) v2-də keçir + brauzerdə iki istifadəçi ziddiyyəti.
 // Testlər ardıcıl işləyir və eyni mock bazanı paylaşır (workers: 1).
@@ -11,7 +16,7 @@ const logs = async () =>
     .filter(([k]) => k.startsWith('log/'))
     .map(([, v]) => v);
 
-async function login(page: Page, user = 'Ecosystem', pass = 'Ecosystem') {
+async function login(page: Page, user = 'Ecosystem', pass = ADMIN_PW) {
   await page.goto('/login');
   await page.getByLabel('İstifadəçi adı').fill(user);
   await page.getByLabel('Parol', { exact: true }).fill(pass);
@@ -189,8 +194,8 @@ test('iki istifadəçi eyni tapşırığı dəyişir → ziddiyyət dialoqu → 
   const pa = await a.newPage();
   const pb = await b.newPage();
   await login(pa);
-  await pa.request.post('/api/users', { data: { action: 'add', name: 'Aysel', password: 'parol-123' } });
-  await login(pb, 'Aysel', 'parol-123');
+  await createUser('Aysel', 'editor', 'Basqa-Gizli-Soz-9');
+  await login(pb, 'Aysel', 'Basqa-Gizli-Soz-9');
   await pa.goto('/tasks?task=B-10');
   await pb.goto('/tasks?task=B-10');
   await pa.getByRole('dialog').getByLabel('Saat/il').fill('10');

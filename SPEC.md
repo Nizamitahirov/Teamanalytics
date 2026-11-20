@@ -507,7 +507,7 @@ Hər mərhələ: branch, PR, CI yaşıl, QM-lər yoxlanıb, sahibə ekran şəki
 | 2 | **Data qatı** ✅ (ADR-002) | Zustand store, sync mühərriki (v1 davranışı + `_v` ziddiyyət + IndexedDB + offline növbə), undo/redo, `shared/metrics.ts` | Qızıl rəqəmlər v2 ilə; iki istifadəçi ziddiyyəti e2e |
 | 3 | **Tapşırıqlar + Əməkdaşlar** ✅ (ADR-003) | Data grid, drawer, profil səhifəsi, ötürmə/ləğv/toplu, sətirdə redaktə, komanda paleti | v1 e2e ssenariləri v2-də keçir |
 | 4 | **Panel** — icra olunub, PR gözləyir (ADR-004) | §6.2 bütün vidjetlər, ECharts temaları, "Cədvəl kimi bax", tünd rejim | Vizual testlər; a11y 0 ciddi |
-| 5 | **Rollar + təhlükəsizlik** | RBAC, sessiya versiyası, kilid, məcburi parol dəyişmə, CSP, audit | RBAC matrisi testləri |
+| 5 | **Rollar + təhlükəsizlik** — icra olunub, PR gözləyir (ADR-005) | RBAC, sessiya versiyası, kilid, məcburi parol dəyişmə, CSP, audit | RBAC matrisi testləri |
 | 6 | **Ssenarilər + Balanslama** | §6.5, §8, təsdiq axını, bildirişlər | Ssenari canlı dataya yazmır (test) |
 | 7 | **Optimizasiya + Data sağlamlığı** | §6.6, §6.8 | Seed tapıntıları aşkarlanır |
 | 8 | **Hesabatlar + Excel v2** | §6.7, §9 | PDF 2–4 səhifə, import diff önizləmə |

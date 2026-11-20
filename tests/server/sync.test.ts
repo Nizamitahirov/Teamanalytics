@@ -34,8 +34,8 @@ beforeAll(async () => {
   A = admin.store;
   // İkinci istifadəçi
   const c = await client(api.base);
-  await c.request('/api/users', { json: { action: 'add', name: 'Aysel', password: 'parol-123' } });
-  B = (await makeStore('Aysel', 'parol-123')).store;
+  await c.request('/api/users', { json: { action: 'add', name: 'Aysel', password: 'Gizli-Soz-2026!' } });
+  B = (await makeStore('Aysel', 'Gizli-Soz-2026!')).store;
 });
 afterAll(() => api.close());
 

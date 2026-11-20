@@ -110,13 +110,33 @@ export const OpsBodySchema = z.object({
 export const LoginBodySchema = z.object({
   username: z.string().trim().min(1).max(100),
   password: z.string().min(1).max(200),
+  remember: z.boolean().optional(),
 });
 
-export const UsersBodySchema = z.object({
-  action: z.enum(['add', 'password', 'remove']),
-  name: z.string().trim().min(1, 'Ad boş ola bilməz').max(100),
-  password: z.string().max(200).optional(),
-});
+const UserName = z.string().trim().min(1, 'Ad boş ola bilməz').max(100);
+const Password = z.string().max(200);
+/** İstifadəçi idarəsi (SPEC §6.10). v1 klienti add/password/remove göndərir — uyğundur. */
+export const UsersBodySchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('add'), name: UserName, password: Password, role: RoleSchema.optional() }),
+  z.object({ action: z.literal('password'), name: UserName, password: Password }),
+  z.object({ action: z.literal('remove'), name: UserName }),
+  z.object({ action: z.literal('role'), name: UserName, role: RoleSchema }),
+  z.object({ action: z.literal('revoke'), name: UserName }),
+  z.object({ action: z.literal('unlock'), name: UserName }),
+  z.object({ action: z.literal('change-own'), current: Password, password: Password }),
+]);
+export type UsersBody = z.infer<typeof UsersBodySchema>;
+
+export type UserRow = {
+  id: string;
+  name: string;
+  active: boolean;
+  created_by: string;
+  role: Role;
+  last_login: string | null;
+  locked_until: string | null;
+  must_change_password: boolean;
+};
 
 /* ---------- API cavabları ---------- */
 export type ApiError = { error: string; code: string };
@@ -140,6 +160,8 @@ export type OpsResponse = {
 };
 export type MeResponse = {
   user: { name: string; role: Role };
+  /** İlkin və ya admin tərəfindən sıfırlanmış parol — dəyişmək məcburidir (SPEC §10) */
+  mustChange: boolean;
   settings: Settings;
   flags: Record<string, boolean>;
 };

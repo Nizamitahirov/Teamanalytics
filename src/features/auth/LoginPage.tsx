@@ -2,6 +2,7 @@ import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { BrandMark } from '../../components/BrandMark';
 import { ApiRequestError, login } from '../../lib/api';
+import { formatTime } from '../../lib/dates';
 import { useI18n, type Lang } from '../../lib/i18n';
 import { useAuth } from '../../app/auth';
 import s from './LoginPage.module.css';
@@ -15,6 +16,7 @@ export function LoginPage() {
   const [show, setShow] = useState(false);
   const [caps, setCaps] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState('');
 
   async function onSubmit(e: FormEvent) {
@@ -22,11 +24,13 @@ export function LoginPage() {
     setBusy(true);
     setError('');
     try {
-      await login(username, password);
+      await login(username, password, remember);
       await refresh(); // PublicOnly əvvəlki səhifəyə yönəldir
     } catch (err) {
       // Ümumi mesaj: hansı sahənin səhv olduğunu demirik (SPEC §6.1 QM)
       if (err instanceof ApiRequestError && err.code === 'network') setError(t('login.network'));
+      else if (err instanceof ApiRequestError && err.code === 'locked')
+        setError(t('login.locked', { time: formatTime(String(err.data.until ?? '')) }));
       else if (err instanceof ApiRequestError && (err.code === 'bad_credentials' || err.code === 'invalid_body'))
         setError(t('login.error'));
       else setError(err instanceof Error ? err.message : t('state.error'));
@@ -107,6 +111,9 @@ export function LoginPage() {
               <AlertTriangle size={14} aria-hidden="true" /> {t('login.caps')}
             </div>
           )}
+          <label className={s.remember}>
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> {t('login.remember')}
+          </label>
           <button className={s.go} type="submit" disabled={busy}>
             {busy ? t('login.busy') : t('login.submit')}
           </button>

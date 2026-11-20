@@ -49,6 +49,9 @@ export type DataStoreState = {
   undo: HistoryEntry[];
   redo: HistoryEntry[];
   conflicts: ClientConflict[];
+  /** Yalnız baxış (viewer) — commit/undo/redo heç nə etmir (server də 403 qaytarır) */
+  readOnly: boolean;
+  setReadOnly(v: boolean): void;
 
   hydrate(): Promise<void>;
   pull(opts?: { full?: boolean }): Promise<boolean>;
@@ -247,6 +250,8 @@ export function createDataStore(deps: DataStoreDeps) {
       undo: [],
       redo: [],
       conflicts: [],
+      readOnly: false,
+      setReadOnly: (v) => set({ readOnly: v }),
 
       async hydrate() {
         const c = await deps.persist.load().catch(() => null);
@@ -275,6 +280,7 @@ export function createDataStore(deps: DataStoreDeps) {
       },
 
       commit(label, mutator, logs = []) {
+        if (get().readOnly) return;
         const prev = get().data;
         const next = produce(prev, mutator);
         const ops = diffOps(prev, next);
@@ -290,6 +296,7 @@ export function createDataStore(deps: DataStoreDeps) {
 
       undoLast() {
         const s = get();
+        if (s.readOnly) return;
         const entry = s.undo[s.undo.length - 1];
         if (!entry) return;
         const restored = withCurrentVersions(entry.snap, s.data);
@@ -305,6 +312,7 @@ export function createDataStore(deps: DataStoreDeps) {
 
       redoLast() {
         const s = get();
+        if (s.readOnly) return;
         const entry = s.redo[s.redo.length - 1];
         if (!entry) return;
         const restored = withCurrentVersions(entry.snap, s.data);

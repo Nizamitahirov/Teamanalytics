@@ -1,0 +1,151 @@
+.layout {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--sp-5);
+  align-items: start;
+}
+.sub {
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--sp-4));
+  display: grid;
+  gap: 2px;
+}
+.sub button {
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  border: none;
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-2);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.sub button:hover {
+  background: var(--hover);
+}
+.sub button[aria-current='page'] {
+  background: var(--ink);
+  color: #fff;
+}
+.body {
+  min-width: 0;
+}
+.card {
+  padding: var(--sp-5) var(--sp-6);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.card h2 {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-20);
+  font-weight: 800;
+}
+.card h3 {
+  margin: var(--sp-6) 0 var(--sp-3);
+  font-size: var(--fs-16);
+  font-weight: 800;
+}
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.head h2 {
+  margin: 0;
+}
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+}
+.kv dt {
+  color: var(--muted);
+}
+.kv dd {
+  margin: 0;
+  font-weight: 700;
+}
+.tableWrap {
+  overflow-x: auto;
+  margin-bottom: var(--sp-3);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-13);
+}
+.table th,
+.table td {
+  padding: 8px var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.table thead th {
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  text-transform: uppercase;
+}
+.roleSel {
+  min-height: 32px;
+  width: auto;
+}
+.actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.me {
+  color: var(--muted);
+  font-weight: 500;
+}
+.ok {
+  color: var(--good-text);
+  font-weight: 600;
+}
+.warn {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+.bad {
+  color: var(--critical-text);
+  font-weight: 600;
+}
+.keys {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+}
+.keys kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: inherit;
+  font-size: var(--fs-12);
+}
+.keys dd {
+  margin: 0;
+}
+@media (max-width: 899.98px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .sub {
+    position: static;
+    grid-auto-flow: column;
+    overflow-x: auto;
+  }
+  .card {
+    padding: var(--sp-4);
+  }
+}
