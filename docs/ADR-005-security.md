@@ -1,6 +1,6 @@
 # ADR-005 — Rollar və təhlükəsizlik (Mərhələ 5)
 
-**Tarix:** 2026-11-20 · **Status:** qəbul edilib (PR gözləyir) · **Əlaqəli:** SPEC §2, §6.1, §6.10, §10
+**Tarix:** 2026-11-20 · **Status:** qəbul edilib (PR #10, birləşdirilib) · **Əlaqəli:** SPEC §2, §6.1, §6.10, §10
 
 ## Nə quruldu
 - **RBAC serverdə** (`server/http.ts → requireUser(req, res, minRole)`): `viewer` — yalnız oxuma; `editor` — `POST /api/ops`; `admin` — `/api/users` və ayarlar. Rol yoxdursa `admin` (SPEC §2 miqrasiya qaydası — mövcud istifadəçilər admin qalır). Rol hər sorğuda bazadan (60 s keş) götürülür.

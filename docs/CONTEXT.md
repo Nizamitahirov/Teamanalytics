@@ -49,6 +49,7 @@ Başlanğıc rəqəmləri (yoxlama üçün): 341 tapşırıq, aktiv illik iş h�
 | v2 M3 | Tapşırıqlar cədvəli, panel, ötürmə dialoqu, əməkdaşlar + profil, birləşdirmə, jurnal, komanda paleti; idempotent yazma düzəlişi — `docs/ADR-003-tasks-employees.md` | SPEC Mərhələ 3 |
 | v2 M4 | Panel: qlobal filtrlər, 9 qrafik (ECharts SVG), ştat cədvəli, cədvəl görünüşü, tünd tema, axe və vizual testlər — `docs/ADR-004-dashboard.md` | SPEC Mərhələ 4 |
 | v2 M5 | Rollar (RBAC serverdə), sessiya versiyası, Firestore kilidi, parol siyasəti, məcburi parol dəyişməsi, CSRF, limit, audit, Ayarlar səhifəsi; seed bug-ı düzəldildi — `docs/ADR-005-security.md` | SPEC Mərhələ 5 |
+| v2 M6 | Ssenarilər (canlı dataya toxunmadan "nə olardı?"), şablonlar, yükü balanslama alqoritmi (SPEC §8), Cari vs Ssenari müqayisəsi, tətbiq (ziddiyyət seçimi, tək Geri al), təsdiq axını (default söndürülü) + bildirişlər; `meta.scen_ts` — `docs/ADR-006-scenarios.md` | SPEC Mərhələ 6 |
 
 ## 4. Əsas qərarlar (ADR xülasəsi)
 

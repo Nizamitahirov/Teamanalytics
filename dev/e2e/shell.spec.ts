@@ -53,10 +53,10 @@ test('qabıq: menyu, naviqasiya, mövzu, çıxış', async ({ page }) => {
   await expect(page.getByText('Administrator')).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/v2-1440-light.png` });
 
-  await nav.getByRole('link', { name: 'Ssenarilər' }).click();
-  await expect(page).toHaveURL(/\/scenarios$/);
-  await expect(nav.getByRole('link', { name: 'Ssenarilər' })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByText('plan: mərhələ 6')).toBeVisible();
+  await nav.getByRole('link', { name: 'Optimizasiya' }).click();
+  await expect(page).toHaveURL(/\/optimization$/);
+  await expect(nav.getByRole('link', { name: 'Optimizasiya' })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByText('plan: mərhələ 7')).toBeVisible();
 
   // Mövzu: sistem → açıq → tünd
   const html = page.locator('html');

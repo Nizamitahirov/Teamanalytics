@@ -22,7 +22,7 @@ Vercel: `public/` statik (v1), `api/*.ts` Node serverless funksiya (Vercel TS-i 
 ```
 public/                 v1 klienti (dəyişməz; Mərhələ 10-da legacy/ olacaq)
   index.html login.html app.js styles.css vendor/
-api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health
+api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health, scenarios, notifications
 server/                 Server məntiqi (Vercel-dən asılı deyil, testlənir)
   firestore.ts          Firestore REST klienti; upsert = updateMask, `_v` increment, tranzaksiya + resolveVersions (ziddiyyət)
   auth.ts               PBKDF2 parol, sessiya (__Host- cookie, sv), Firestore kilidi, parol siyasəti, rollar, ip_hash
@@ -33,6 +33,9 @@ shared/                 Həm server, həm klient
   schema.ts             Zod: Task, Employee, LogEntry, Settings, Role, Op (+ v, base), OpsBody, Conflict, OpsResponse
   model.ts              normalizeTask/Employee, curOwner, statusOf, diffOps (yalnız dəyişən sahələr + v/base)
   metrics.ts            SPEC §7 formulaları — TƏK MƏNBƏ (Panel və hesabatlar buradan); filterScope
+  apply.ts              Op-ların lokal tətbiqi (ssenari datası = canlı + op-lar; updateMask semantikası)
+  rebalance.ts          Yükü balanslama alqoritmi (SPEC §8, deterministik)
+  scenario.ts           Ssenari dəyişiklikləri, şablonlar, müqayisə, tətbiqdə ziddiyyət yoxlaması, jurnal
   dashboard.ts          Panel vidjetlərinin datası (bullet, Sankey, treemap, heatmap, waterfall, Pareto, histogram, ştat cədvəli)
   search.ts             Axtarış normallaşdırması (ə/e, ı/i, ö/o, ü/u, ş/s, ç/c, ğ/g)
   taskFilter.ts         Tapşırıq filtrləri və sürətli çiplər (saf funksiya)
@@ -41,8 +44,8 @@ shared/                 Həm server, həm klient
   version.ts            APP_VERSION (/api/health, UI)
 src/                    v2 React klienti (Vite, React 19, React Router, CSS Modules, Lucide)
   app/                  router, Shell (sol menyu / aşağı naviqasiya, üst panel), auth konteksti, useCan (rol), nav
-  store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), actions (ötür/ləğv/düzəliş/birləşdir), persist (IndexedDB), useSyncLoop
-  features/             auth (giriş, məcburi parol), settings (hesab, ümumi, istifadəçilər), dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), log, palette (Ctrl+K, qısayollar), sync, placeholder
+  store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), actions (ötür/ləğv/düzəliş/birləşdir), persist (IndexedDB), useSyncLoop, scenarios (ssenari + bildiriş store-u)
+  features/             auth (giriş, məcburi parol), settings (hesab, ümumi + təsdiq axını, istifadəçilər), dashboard, scenarios (siyahı, redaktor, müqayisə, balanslama, tətbiq, bildirişlər), tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), log, palette (Ctrl+K, qısayollar), sync, placeholder
   components/           Button, IconButton, Modal, Drawer, Toaster, EmployeePicker (combobox), Badges, Form.module.css, EmptyState, Skeleton
   charts/               ECharts (modul, SVG renderer), theme.ts (açıq/tünd), options/*.ts (saf: data → option + cədvəl + xülasə), ChartFrame
   hooks/                useFocusTrap, useMedia, useMetrics
@@ -101,7 +104,9 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 | `tasks` | `id` (məs. `B-25`, `P-17`, `T-…`) | `id, company, process, category, task, description, owner_before, owner_after, min_per_key, annual_freq, unit, hours, after_opt, is_cancelled, updated_at, updated_by` + sistem: `_ts`, `_deleted`, `_v` |
 | `employees` | `name` (dəqiq ad, məs. `Şöbə əməkdaşları`) | `name, company, activity, fte, is_group, active` + `_ts`, `_deleted`, `_v` |
 | `log` | klientin yaratdığı `L-…` id | `ts, user, action, task_id, task_label, from, to, comment` + `_ts` |
-| `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn` (ayarlar) |
+| `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn`, `approval` (0/1), `approval_hours` (ayarlar), `scen_ts` (ssenari/bildiriş dəyişikliyi — data sinxronuna təsir etmir) |
+| `scenarios` | `S-…` | `name, description, status (draft/pending/applied/archived), created_by, created_at, updated_at, base_ts, changes` (JSON sətri: `ScenarioChange[]`), `submitted_by, applied_by, applied_at, review_comment` + `_ts`, `_v`, `_deleted` |
+| `notifications` | `N-…` | `to` (istifadəçi id), `kind, text, link, from, read, ts` + `_ts` |
 | `users` | ad kiçik hərflə (`ecosystem`) | `name, salt, hash, iter, active, created_by, role, session_version, must_change_password, failed_attempts, locked_until, last_login` — heş/duz **heç vaxt klientə göndərilmir** |
 
 - `_ts`: hər yazmada server vaxtı (`REQUEST_TIME` transform). Delta sinxronun əsası.
@@ -136,6 +141,7 @@ Aşağıdakı v1 axınıdır (`public/app.js`). v2 klienti (`src/store/dataStore
 Qadağalar:
 - Bütün kolleksiyanı üzərinə yazan ("replace all") yazma əlavə etmə — eyni vaxtda işləyən başqa istifadəçinin dəyişikliyini silir (v1-də belə bir bug tapılıb düzəldilib, `docs/CONTEXT.md`).
 - Brauzerdən Firestore-a birbaşa qoşulma əlavə etmə (qaydalar "hamıya bağlı"dır, Firebase Auth yoxdur) — bütün giriş `api/` üzərindən.
+- Ssenari yazıları `meta.updated`-ə toxunmamalıdır (yalnız `scen_ts`) — əks halda hər ssenari yaddaşı bütün klientlərdə delta sorğusu yaradar (ADR-006). Ssenari tətbiqi adi `commit` → `/api/ops` yolu ilədir.
 - Gündəlik pulsuz limit: 50 000 oxuma / 20 000 yazma. Tam yükləmə ~670 oxumadır; yoxlama 1 oxuma. Yeni xüsusiyyət hər sorğuda kolleksiya oxumamalıdır.
 
 ## 7. Təhlükəsizlik
