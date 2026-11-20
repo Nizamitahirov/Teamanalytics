@@ -17,10 +17,6 @@ export function sankeyOption(flows: Flow[], levelOf: (name: string) => LoadLevel
     .map((f) => `${f.from} → ${f.to} (${fmtHours(f.hours)})`)
     .join('; ');
   const summary = t('chart.sankey.summary', { n: flows.reduce((a, f) => a + f.count, 0), h: fmtHours(total), top: top || '—' });
-  const hexA = (hex: string, a: number) => {
-    const n = parseInt(hex.slice(1), 16);
-    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-  };
   return {
     height: Math.max(340, Math.max(left.length, right.length) * 34 + 40),
     summary,
@@ -48,21 +44,22 @@ export function sankeyOption(flows: Flow[], levelOf: (name: string) => LoadLevel
           right: 120,
           top: 8,
           bottom: 8,
-          nodeWidth: 10,
-          nodeGap: 10,
+          nodeWidth: 12,
+          nodeGap: 12,
           nodeAlign: 'justify',
           draggable: false,
-          emphasis: { focus: 'adjacency' },
-          label: { color: th.text, fontSize: 12, formatter: (p: { name: string }) => stripSide(p.name) },
-          itemStyle: { color: th.neutral, borderWidth: 0 },
-          lineStyle: { curveness: 0.5 },
+          label: { color: th.text, fontSize: 12, fontWeight: 500, formatter: (p: { name: string }) => stripSide(p.name) },
+          itemStyle: { color: th.neutral, borderWidth: 0, borderRadius: 3 },
+          // ECharts default opacity 0.2 çox solğundur; qəbul edənin yük statusu rəngi 0.35 ilə
+          lineStyle: { curveness: 0.5, opacity: th.mode === 'light' ? 0.32 : 0.4 },
+          emphasis: { focus: 'adjacency', lineStyle: { opacity: 0.65 } },
           data: [...left.map((n) => ({ name: L + n })), ...right.map((n) => ({ name: '→ ' + n }))],
           links: flows.map((f) => ({
             source: L + f.from,
             target: '→ ' + f.to,
             value: f.hours,
             count: f.count,
-            lineStyle: { color: hexA(statusColor(th, levelOf(f.to)), 0.5) },
+            lineStyle: { color: statusColor(th, levelOf(f.to)) },
           })),
         },
       ],

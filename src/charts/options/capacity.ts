@@ -14,13 +14,20 @@ export function capacityOption(b: ReturnType<typeof capacityBalance>, th: ChartT
     type: 'scatter',
     data: [[value, 0]],
     symbol: 'rect',
-    symbolSize: [5, h],
+    symbolSize: [4, h],
     itemStyle: { color, borderColor: th.surface, borderWidth: 2 },
-    label: { show: true, position: pos, color: th.text, fontWeight: 700, formatter: () => `${name}: ${fmtFte(value)}` },
+    label: {
+      show: true,
+      position: pos,
+      color: th.text,
+      fontWeight: 600,
+      fontSize: 12,
+      formatter: () => `${name}: ${fmtFte(value)}`,
+    },
     z: 5,
   });
   return {
-    height: 170,
+    height: 150,
     summary,
     table: {
       columns: [t('chart.col.metric'), 'FTE'],
@@ -33,7 +40,7 @@ export function capacityOption(b: ReturnType<typeof capacityBalance>, th: ChartT
     option: {
       ...base(th, summary),
       legend: { bottom: 0, textStyle: { color: th.text2 }, itemWidth: 12, itemHeight: 12 },
-      grid: { left: 8, right: 24, top: 36, bottom: 56, containLabel: true },
+      grid: { left: 8, right: 24, top: 30, bottom: 50, containLabel: true },
       xAxis: {
         type: 'value',
         min: 0,
@@ -53,12 +60,14 @@ export function capacityOption(b: ReturnType<typeof capacityBalance>, th: ChartT
           name: have,
           type: 'bar',
           data: [b.have],
-          barWidth: 26,
-          itemStyle: { color: th.cat[0], borderRadius: [0, 4, 4, 0] },
+          barWidth: 18,
+          showBackground: true,
+          backgroundStyle: { color: th.mode === 'light' ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)', borderRadius: 9 },
+          itemStyle: { color: th.cat[0], borderRadius: 9 },
           label: { show: true, position: 'insideRight', color: '#fff', fontWeight: 700, formatter: () => fmtFte(b.have) },
         },
-        marker(need, b.need, th.text, 44, 'top'),
-        marker(needOpt, b.needOpt, th.muted, 34, 'bottom'),
+        marker(need, b.need, th.text, 36, 'top'),
+        marker(needOpt, b.needOpt, th.muted, 28, 'bottom'),
       ],
     },
   };

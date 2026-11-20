@@ -1,20 +1,8 @@
-// 4. Əməkdaşların yüklənməsi — üfüqi bar, sıralı; 85–100% zona, 100% xətti; rəng + naxış (rəng tək daşıyıcı deyil).
+// 4. Əməkdaşların yüklənməsi — üfüqi bar, sıralı; 85–100% zona, 100% xətti; rəng + mətn etiketi/▲ (rəng tək daşıyıcı deyil).
 import { fmtFte, fmtHours, fmtPct } from '../../../shared/format';
 import type { EmployeeLoad } from '../../../shared/metrics';
 import { axisStyle, base, statusColor, type ChartSpec, type ChartTheme } from '../theme';
 import type { T } from './types';
-
-const DECAL = {
-  critical: {
-    symbol: 'rect',
-    symbolSize: 1,
-    dashArrayX: [1, 0],
-    dashArrayY: [2, 4],
-    rotation: Math.PI / 4,
-    color: 'rgba(255,255,255,0.45)',
-  },
-  warning: { symbol: 'circle', symbolSize: 0.6, dashArrayX: [[4, 4]], dashArrayY: [4, 4], color: 'rgba(0,0,0,0.25)' },
-};
 
 export function loadOption(bars: EmployeeLoad[], warn: number, th: ChartTheme, t: T): ChartSpec {
   const rows = [...bars].reverse(); // ECharts category oxu aşağıdan yuxarı — ən yüklü yuxarıda
@@ -53,14 +41,12 @@ export function loadOption(bars: EmployeeLoad[], warn: number, th: ChartTheme, t
       series: [
         {
           type: 'bar',
-          barWidth: 14,
+          barWidth: 12,
+          showBackground: true,
+          backgroundStyle: { color: th.mode === 'light' ? 'rgba(15,23,42,0.035)' : 'rgba(255,255,255,0.04)', borderRadius: 6 },
           data: rows.map((b) => ({
             value: Number.isFinite(b.load) ? +(b.load * 100).toFixed(1) : max,
-            itemStyle: {
-              color: statusColor(th, b.level),
-              borderRadius: [0, 4, 4, 0],
-              decal: b.level === 'critical' ? DECAL.critical : b.level === 'warning' ? DECAL.warning : undefined,
-            },
+            itemStyle: { color: statusColor(th, b.level), borderRadius: 6 },
           })),
           label: {
             show: true,
@@ -70,7 +56,11 @@ export function loadOption(bars: EmployeeLoad[], warn: number, th: ChartTheme, t
             fontWeight: 600,
             formatter: (p: { dataIndex: number }) => {
               const b = rows[p.dataIndex];
-              return b.level === 'critical' ? `${fmtPct(b.load)} ▲` : fmtPct(b.load);
+              return b.level === 'critical'
+                ? `${fmtPct(b.load)} ▲`
+                : b.level === 'warning'
+                  ? `${fmtPct(b.load)} △`
+                  : fmtPct(b.load);
             },
           },
           markArea: {

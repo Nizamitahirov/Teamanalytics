@@ -118,6 +118,19 @@ export function DashboardPage() {
             <small>{unitF}</small>
           </div>
           <div className={s.foot}>{t('kpi.haveFoot', { n: m.people.length })}</div>
+          {m.fteHave > 0 && (
+            <div
+              className={s.meter}
+              role="meter"
+              aria-label={t('kpi.utilization')}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round((m.fteNeed / m.fteHave) * 100)}
+              title={`${t('kpi.utilization')}: ${fmtPct(m.fteNeed / m.fteHave)}`}
+            >
+              <span data-over={m.fteNeed > m.fteHave} style={{ width: `${Math.min(100, (m.fteNeed / m.fteHave) * 100)}%` }} />
+            </div>
+          )}
         </div>
         <div className={s.stat}>
           <div className={s.label}>{gap >= 0 ? t('kpi.reserve') : t('kpi.shortage')}</div>

@@ -6,7 +6,27 @@ import type { T } from './types';
 
 export function treemapOption(tree: TreeNode[], mode: 'treemap' | 'sunburst', th: ChartTheme, t: T): ChartSpec {
   const total = tree.reduce((a, x) => a + x.value, 0) || 1;
-  const colored = tree.map((c, i) => ({ ...c, itemStyle: { color: companyColor(th, c.name, i) } }));
+  // Proseslər şirkət rənginin çalarları ilə (ən böyük — ən tünd); ağ mətn kontrastı üçün qarışıq ≤ 30% qalır
+  const rgb = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const toHex = (c: number[]) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('');
+  /** k > 0 — ağa doğru açır, k < 0 — tündləşdirir */
+  const tone = (hex: string, k: number) => toHex(rgb(hex).map((v) => (k >= 0 ? v + (255 - v) * k : v * (1 + k))));
+  const colored = tree.map((c, i) => {
+    const base0 = companyColor(th, c.name, i);
+    const kids = [...(c.children ?? [])].sort((a, b) => b.value - a.value);
+    const rank = new Map(kids.map((k, j) => [k.name, j / Math.max(1, kids.length - 1)]));
+    return {
+      ...c,
+      itemStyle: { color: tone(base0, -0.18) },
+      children: (c.children ?? []).map((k) => ({
+        ...k,
+        itemStyle: { color: tone(tone(base0, -0.12), (rank.get(k.name) ?? 0) * 0.3) },
+      })),
+    };
+  });
   const procs = tree
     .flatMap((c) => (c.children ?? []).map((p) => ({ company: c.name, process: p.name, value: p.value })))
     .sort((a, b) => b.value - a.value);
@@ -52,12 +72,13 @@ export function treemapOption(tree: TreeNode[], mode: 'treemap' | 'sunburst', th
             overflow: 'truncate',
             formatter: (p: { name: string; value: number }) => `${p.name}\n${fmtHours(p.value)}`,
           },
-          upperLabel: { show: true, height: 22, color: '#fff', fontWeight: 700 },
-          itemStyle: { borderColor: th.surface, borderWidth: 2, gapWidth: 2 },
+          upperLabel: { show: true, height: 24, color: '#fff', fontWeight: 600, fontSize: 12 },
+          itemStyle: { borderColor: th.surface, borderWidth: 2, gapWidth: 2, borderRadius: 6 },
+          // Sakit tonlar: şirkət rəngi saxlanır, proseslər açıq-tünd çalarlarla (doymuş qırmızı blok yox)
           levels: [
-            { itemStyle: { borderWidth: 0, gapWidth: 3 } },
-            { colorSaturation: [0.35, 0.6], itemStyle: { gapWidth: 2, borderColorSaturation: 0.6 } },
-            { colorSaturation: [0.3, 0.55], itemStyle: { gapWidth: 1 } },
+            { itemStyle: { borderWidth: 0, gapWidth: 4, borderRadius: 8 } },
+            { itemStyle: { gapWidth: 2, borderRadius: 6 } },
+            { itemStyle: { gapWidth: 1, borderRadius: 4 } },
           ],
         }
       : {

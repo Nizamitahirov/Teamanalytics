@@ -13,20 +13,25 @@
 }
 .label {
   color: var(--text-2);
-  font-size: var(--fs-12);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: var(--fs-13);
+  font-weight: 600;
 }
 .input {
   width: 100%;
-  min-height: 40px;
+  min-height: 38px;
   padding: 0 var(--sp-3);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--text);
   font-size: var(--fs-14);
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.input:hover:not(:focus):not(:disabled) {
+  border-color: var(--border-strong);
 }
 textarea.input {
   min-height: 72px;

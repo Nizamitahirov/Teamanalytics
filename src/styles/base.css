@@ -15,6 +15,17 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
+  /* Inter: açıq rəqəmlər və sadə "a" — sıx dashboard-da daha oxunaqlı */
+  font-feature-settings: 'cv11', 'ss01';
+  text-rendering: optimizeLegibility;
+}
+::selection {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+/* İncə, sakit sürüşdürmə zolaqları */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
 button,
 input,

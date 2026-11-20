@@ -94,7 +94,7 @@ export function paretoOption(p: ReturnType<typeof pareto>, th: ChartTheme, t: T)
           barMaxWidth: 18,
           data: p.items.map((x, i) => ({
             value: +x.hours.toFixed(1),
-            itemStyle: { color: i <= cut ? th.cat[1] : th.idle, borderRadius: [4, 4, 0, 0] },
+            itemStyle: { color: i <= cut ? th.cat[1] : th.idle, borderRadius: [5, 5, 0, 0] },
           })),
         },
       ],
