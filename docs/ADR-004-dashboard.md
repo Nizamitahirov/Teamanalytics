@@ -23,5 +23,5 @@ Sparkline və 30 günlük dəyişmə (snapshot — Mərhələ 9), ssenari görü
 
 ## Testlər
 - Vitest 149: panel datası qızıl rəqəmlərlə (waterfall 28 782 → 27 795, Sankey cəmi = transfer, treemap = 27 849,56, heatmap, Pareto 80%, histogram 18 nəfər), option-lar (aria, cədvəl, bir grid — bir y oxu, determinizm, tünd ≠ açıq, şirkət rəngi varlığa bağlı).
-- Playwright 18: bütün vidjetlər, cədvəl görünüşü rəqəmləri, filtrlər URL-də, KPI klik, tünd rejim, 1440/820/390, **axe** (Panel, Tapşırıqlar, Əməkdaşlar, Profil, Jurnal — 0 ciddi/kritik), **vizual reqressiya** (5 vidjet × açıq/tünd, fərq ≥ 0,1% → yıxılır; etalonlar `dev/e2e/dashboard.spec.ts-snapshots/`).
+- Playwright 18: bütün vidjetlər, cədvəl görünüşü rəqəmləri, filtrlər URL-də, KPI klik, tünd rejim, 1440/820/390, **axe** (Panel, Tapşırıqlar, Əməkdaşlar, Profil, Jurnal — 0 ciddi/kritik), **vizual reqressiya** (5 vidjet × açıq/tünd; etalonlar `dev/e2e/dashboard.spec.ts-snapshots/`). Hədd **3%**, SPEC-dəki 0,1% yox: etalonlar sandbox-da çəkilib, GitHub CI-da şrift anti-aliasing-i ~1% fərq verir (PR #9-un ilk CI qaçışında ölçülüb). 0,1% üçün etalonları CI ilə eyni mühitdə (Playwright Docker obrazı) çəkmək lazımdır — sonrakı iş.
 - Mock serverə `POST :8791/reset` əlavə olundu (e2e təmiz baza ilə).
