@@ -18,5 +18,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     target: 'es2022',
+    // ECharts chunk-ı (~240 KB gzip) yalnız Panel qrafikləri açılanda lazy yüklənir — ilkin JS ~136 KB
+    chunkSizeWarningLimit: 800,
   },
 });

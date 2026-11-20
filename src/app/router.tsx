@@ -5,7 +5,6 @@ import { Shell } from './Shell';
 import { NAV } from './nav';
 import { LoginPage } from '../features/auth/LoginPage';
 import { PlaceholderPage } from '../features/placeholder/PlaceholderPage';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
 
 import { NotFoundPage } from '../features/placeholder/NotFoundPage';
 import { EmptyState } from '../components/EmptyState';
@@ -57,8 +56,10 @@ export const router = createBrowserRouter([
   { element: <PublicOnly />, children: [{ path: '/login', element: <LoginPage /> }] },
   {
     element: <RequireAuth />,
+    // Lazy səhifələr yüklənərkən (ilk açılış) boş yer tutan
+    hydrateFallbackElement: <div aria-busy="true" />,
     children: [
-      { index: true, element: <DashboardPage /> },
+      { index: true, lazy: async () => ({ Component: (await import('../features/dashboard/DashboardPage')).DashboardPage }) },
       // Ağır səhifələr (TanStack Table/Virtual) ayrıca chunk-larda — ilkin JS ≤ 180 KB (SPEC §11)
       { path: 'tasks', lazy: async () => ({ Component: (await import('../features/tasks/TasksPage')).TasksPage }) },
       {

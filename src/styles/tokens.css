@@ -26,6 +26,10 @@
   --good: #0ca30c;
   --warning: #fab219;
   --critical: #d03b3b;
+  /* status MƏTNİ üçün (kontrast ≥ 4,5:1 — WCAG AA); qrafik/doldurma üçün yuxarıdakılar */
+  --good-text: #0b7a3e;
+  --warning-text: #8a5a00;
+  --critical-text: #b4121b;
 
   /* qrafik kateqoriyaları (validatordan keçib, SPEC §12.1) */
   --cat-1: #2347a8;
@@ -98,6 +102,9 @@
   --cat-6: #a88312;
   --company-birbank: #ff4d57;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --good-text: #5fd88a;
+  --warning-text: #fab219;
+  --critical-text: #ff8a80;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -120,6 +127,9 @@
     --cat-6: #a88312;
     --company-birbank: #ff4d57;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+    --good-text: #5fd88a;
+    --warning-text: #fab219;
+    --critical-text: #ff8a80;
   }
 }
 

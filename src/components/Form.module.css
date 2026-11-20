@@ -62,7 +62,7 @@ textarea.input {
 }
 .warn svg {
   flex-shrink: 0;
-  color: #a86b00;
+  color: var(--warning-text);
 }
 .row {
   display: flex;

@@ -2,8 +2,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   margin-bottom: var(--sp-4);
 }
 .seg {
@@ -184,4 +183,17 @@
   .value {
     font-size: var(--fs-24);
   }
+}
+
+.kpiLink {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--r-lg);
+}
+.kpiLink > div {
+  height: 100%;
+}
+.kpiLink:hover > div {
+  box-shadow: var(--shadow-2);
 }

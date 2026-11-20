@@ -162,7 +162,7 @@ export function Shell({ me }: { me: MeResponse }) {
               type="button"
               className={s.search}
               onClick={openPalette}
-              aria-label={`${t('top.search')} (Ctrl K)`}
+              aria-label={`${t('top.search')} Ctrl K`}
               aria-haspopup="dialog"
             >
               <Search size={16} aria-hidden="true" />
