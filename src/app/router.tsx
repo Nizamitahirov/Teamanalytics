@@ -94,10 +94,31 @@ export const router = createBrowserRouter([
         lazy: async () => ({ Component: (await import('../features/optimization/OptimizationPage')).OptimizationPage }),
       },
       { path: 'health', lazy: async () => ({ Component: (await import('../features/health/HealthPage')).HealthPage }) },
+      { path: 'reports', lazy: async () => ({ Component: (await import('../features/reports/ReportsPage')).ReportsPage }) },
+      {
+        path: 'reports/executive',
+        lazy: async () => ({ Component: (await import('../features/reports/ExecutiveReportPage')).ExecutiveReportPage }),
+      },
+      {
+        path: 'reports/employee/:name',
+        lazy: async () => ({ Component: (await import('../features/reports/EmployeeReportPage')).EmployeeReportPage }),
+      },
+      {
+        path: 'reports/process/:name',
+        lazy: async () => ({ Component: (await import('../features/reports/ProcessReportPage')).ProcessReportPage }),
+      },
+      {
+        path: 'reports/log',
+        lazy: async () => ({ Component: (await import('../features/reports/LogReportPage')).LogReportPage }),
+      },
+      { path: 'reports/import', lazy: async () => ({ Component: (await import('../features/reports/ImportPage')).ImportPage }) },
       { path: 'log', lazy: async () => ({ Component: (await import('../features/log/LogPage')).LogPage }) },
       // Hələ hazır olmayan bölmələr
       ...NAV.filter(
-        (n) => !['/', '/tasks', '/employees', '/scenarios', '/optimization', '/health', '/log', '/settings'].includes(n.path),
+        (n) =>
+          !['/', '/tasks', '/employees', '/scenarios', '/optimization', '/health', '/reports', '/log', '/settings'].includes(
+            n.path,
+          ),
       ).map((n) => ({
         path: n.path.slice(1) + '/*',
         element: <PlaceholderPage />,

@@ -113,7 +113,7 @@ export function Shell({ me }: { me: MeResponse }) {
         {t('app.skip')}
       </a>
 
-      <aside className={s.side}>
+      <aside className={s.side} data-print-hide>
         <div className={s.logo}>
           <BrandMark size={40} />
           <div className={s.logoText}>
@@ -153,8 +153,8 @@ export function Shell({ me }: { me: MeResponse }) {
         </div>
       </aside>
 
-      <div className={s.main}>
-        <header className={s.topbar}>
+      <div className={s.main} data-print-main>
+        <header className={s.topbar} data-print-hide>
           <div className={s.titleBox}>
             <ol className={`${s.crumbs} ${s.hideXs}`} aria-label="Breadcrumb">
               <li>{t('app.name')}</li>
@@ -202,9 +202,9 @@ export function Shell({ me }: { me: MeResponse }) {
           </div>
         </header>
 
-        <main id="main" ref={mainRef} tabIndex={-1} className={s.content}>
+        <main id="main" ref={mainRef} tabIndex={-1} className={s.content} data-print-content>
           {!canEdit && (
-            <p className={s.readOnly} role="note">
+            <p className={s.readOnly} role="note" data-print-hide>
               <Eye size={16} aria-hidden="true" /> {t('role.viewerNote')}
             </p>
           )}
@@ -212,7 +212,7 @@ export function Shell({ me }: { me: MeResponse }) {
         </main>
       </div>
 
-      <nav className={s.bottom} aria-label={t('nav.main')}>
+      <nav className={s.bottom} aria-label={t('nav.main')} data-print-hide>
         {NAV.filter((n) => n.primary).map((n) => (
           <NavLink key={n.path} to={n.path} end={n.path === '/'}>
             <n.icon size={20} aria-hidden="true" />

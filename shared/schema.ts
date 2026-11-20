@@ -173,6 +173,7 @@ export const CHANGE_KINDS = [
   'norm',
   'automate',
   'rebalance',
+  'import',
 ] as const;
 export const ChangeKindSchema = z.enum(CHANGE_KINDS);
 export type ChangeKind = z.infer<typeof ChangeKindSchema>;

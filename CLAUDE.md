@@ -37,6 +37,7 @@ shared/                 Həm server, həm klient
   scenario.ts           Ssenari dəyişiklik qurucuları + scenarioImpact; scenarioDoc.ts — sənəd → Scenario
   rebalance.ts          SPEC §8 balanslama alqoritmi
   optimization.ts       Optimizasiya portfeli (§6.6); health.ts — Data sağlamlığı yoxlamaları (§6.8)
+  report.ts             Hesabat datası + avtomatik şərh (§6.7); excel.ts — export vərəqləri, sütun xəritəsi, import diff (§9)
   metrics.ts            SPEC §7 formulaları — TƏK MƏNBƏ (Panel və hesabatlar buradan); filterScope
   dashboard.ts          Panel vidjetlərinin datası (bullet, Sankey, treemap, heatmap, waterfall, Pareto, histogram, ştat cədvəli)
   search.ts             Axtarış normallaşdırması (ə/e, ı/i, ö/o, ü/u, ş/s, ç/c, ğ/g)
@@ -47,12 +48,12 @@ shared/                 Həm server, həm klient
 src/                    v2 React klienti (Vite, React 19, React Router, CSS Modules, Lucide)
   app/                  router, Shell (sol menyu / aşağı naviqasiya, üst panel), auth konteksti, useCan (rol), nav
   store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), actions (ötür/ləğv/düzəliş/birləşdir), scenarioActions (ssenari: önizləmə/tətbiq/geri alma/təsdiq), persist (IndexedDB), useSyncLoop
-  features/             auth (giriş, məcburi parol), settings (hesab, ümumi, istifadəçilər), dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), scenarios (siyahı, redaktor, dəyişiklik/tətbiq dialoqları), notifications, optimization (Kanban), health (data sağlamlığı), log, palette (Ctrl+K, qısayollar), sync, placeholder
+  features/             auth (giriş, məcburi parol), settings (hesab, ümumi, istifadəçilər), dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), scenarios (siyahı, redaktor, dəyişiklik/tətbiq dialoqları), notifications, optimization (Kanban), health (data sağlamlığı), reports (rəhbərlik/əməkdaş/proses/jurnal hesabatları, Excel export/import sehrbazı), log, palette (Ctrl+K, qısayollar), sync, placeholder
   components/           Button, IconButton, Modal, Drawer, Toaster, EmployeePicker (combobox), Badges, Form.module.css, EmptyState, Skeleton
   charts/               ECharts (modul, SVG renderer), theme.ts (açıq/tünd), options/*.ts (saf: data → option + cədvəl + xülasə), ChartFrame
   hooks/                useFocusTrap, useMedia, useMetrics
   lib/                  api klienti, i18n, mövzu (açıq/tünd/sistem), storage
-  styles/               tokens.css (SPEC §12.1), base.css, fonts.css (Inter latin + latin-ext)
+  styles/               tokens.css (SPEC §12.1), base.css, fonts.css (Inter latin + latin-ext), print.css (A4 üfüqi, data-print-*)
 index.html vite.config.ts   v2 giriş nöqtəsi; publicDir = static/ (v1 public/ DEYİL)
 data/seed.json          İlkin data: 341 tapşırıq + 23 əməkdaş (ictimai deyil, yalnız serverdə oxunur)
 dev/mock-firestore.ts   Firestore REST mock (yaddaşda) — dev server və server testləri üçün
@@ -76,7 +77,7 @@ npm run lint       # ESLint (typescript-eslint, react-hooks, jsx-a11y); public/ 
 npm run format     # Prettier (format:check — CI)
 npm test           # Vitest: qızıl testlər, server (mock Firestore), unit
 npm run build      # v2 Vite build → dist/ (deploy olunmur)
-npm run e2e        # v2 Playwright (dev serverləri özü işə salır)
+npm run e2e        # v2 Playwright (dev serverləri özü işə salır); CDN bağlıdırsa XLSX_PATH=… (Excel testləri)
 npm run e2e:v1     # v1 testi (npm run dev işləyərkən; pip install playwright openpyxl)
                    # XLSX_PATH=/path/xlsx.full.min.js — CDN əlçatmazdırsa Excel testi üçün
 npm run ci         # typecheck + lint + format + test + build

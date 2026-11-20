@@ -57,9 +57,9 @@ test('qabıq: menyu, naviqasiya, mövzu, çıxış', async ({ page }) => {
   await expect(page).toHaveURL(/\/scenarios$/);
   await expect(nav.getByRole('link', { name: 'Ssenarilər' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', { name: 'Şablonlar' })).toBeVisible();
-  // Hələ hazır olmayan bölmə — yer tutan səhifə
+  // Bütün bölmələr hazırdır (Mərhələ 8) — yer tutan səhifə qalmayıb
   await nav.getByRole('link', { name: 'Hesabatlar' }).click();
-  await expect(page.getByText('plan: mərhələ 8')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Rəhbərlik hesabatı' })).toBeVisible();
 
   // Mövzu: sistem → açıq → tünd
   const html = page.locator('html');

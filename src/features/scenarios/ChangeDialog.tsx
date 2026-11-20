@@ -128,6 +128,8 @@ export function ChangeDialog({ sc, initialKind, onClose }: { sc: Scenario; initi
         return process && n > 0 && n <= 100
           ? { after: automateIn(before, process, n, company || undefined), label: t('chg.l.automate', { process, pct: n }) }
           : null;
+      case 'import':
+        return null; // yalnız import sehrbazından (Hesabatlar → Import)
       case 'rebalance':
         return rb && rb.moves.length
           ? {
@@ -229,7 +231,7 @@ export function ChangeDialog({ sc, initialKind, onClose }: { sc: Scenario; initi
             onChange={(e) => reset(e.target.value as ChangeKind)}
             data-autofocus
           >
-            {CHANGE_KINDS.map((k) => (
+            {CHANGE_KINDS.filter((k) => k !== 'import').map((k) => (
               <option key={k} value={k}>
                 {t(`chg.k.${k}`)}
               </option>

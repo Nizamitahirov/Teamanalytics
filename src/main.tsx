@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
+import './styles/print.css';
 import { AuthProvider } from './app/auth';
 import { router } from './app/router';
 import { I18nProvider } from './lib/i18n';

@@ -7,7 +7,7 @@ export function Toaster() {
   const items = useToasts();
   const { t } = useI18n();
   return (
-    <div className={s.wrap} role="status" aria-live="polite">
+    <div className={s.wrap} role="status" aria-live="polite" data-print-hide>
       {items.map((it) => (
         <div key={it.id} className={`${s.toast} ${it.kind === 'error' ? s.error : ''}`}>
           <span>{it.text}</span>
