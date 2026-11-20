@@ -1,0 +1,147 @@
+/* 12 sütunlu düzən (SPEC §6.2): 1440 px-də bullet 12, yük 8 + matris 4, Sankey 12, treemap 7 + waterfall 5,
+   heatmap 12, Pareto 6 + histogram 6, trend 12, ştat cədvəli 12; < 1024 px hamısı 12. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--sp-4);
+  margin-top: var(--sp-4);
+}
+.s12 {
+  grid-column: span 12;
+}
+.s8 {
+  grid-column: span 8;
+}
+.s7 {
+  grid-column: span 7;
+}
+.s6 {
+  grid-column: span 6;
+}
+.s5 {
+  grid-column: span 5;
+}
+.s4 {
+  grid-column: span 4;
+}
+@media (max-width: 1023.98px) {
+  .s8,
+  .s7,
+  .s6,
+  .s5,
+  .s4 {
+    grid-column: span 12;
+  }
+}
+.matrix {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+.cell {
+  padding: var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.cell h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-13);
+  font-weight: 700;
+}
+.cell h3 i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.cell dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-12);
+}
+.cell dt {
+  color: var(--muted);
+}
+.cell dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+}
+.seg button {
+  min-height: 28px;
+  padding: 0 var(--sp-2);
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  font-weight: 600;
+  cursor: pointer;
+}
+.seg button[aria-pressed='true'] {
+  background: var(--ink);
+  color: #fff;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-13);
+  font-weight: 600;
+  cursor: pointer;
+}
+.empty {
+  padding: var(--sp-8) var(--sp-4);
+  color: var(--muted);
+  text-align: center;
+}
+.staff {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-13);
+  font-variant-numeric: tabular-nums;
+}
+.staff th,
+.staff td {
+  padding: 8px var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+.staff th:first-child,
+.staff td:first-child {
+  text-align: left;
+}
+.staff thead th {
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--fs-12);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.staff tfoot td {
+  font-weight: 800;
+}
+.staffWrap {
+  overflow-x: auto;
+}
+.link {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
+}

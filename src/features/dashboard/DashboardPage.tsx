@@ -1,5 +1,10 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { AlertCircle, Ban, Flame, Inbox, Repeat, Zap } from 'lucide-react';
+import { ACT_ADMIN, ACT_PROJECT } from '../../../shared/constants';
+import type { Filters } from '../../../shared/metrics';
+// Qrafiklər (ECharts) ayrıca chunk-da: hero və KPI-lar dərhal görünür, qrafiklər arxasınca (SPEC §11 — LCP)
+const DashboardWidgets = lazy(() => import('./DashboardWidgets').then((m) => ({ default: m.DashboardWidgets })));
 import { useI18n } from '../../lib/i18n';
 import { useData } from '../../store';
 import { computeMetrics, type View } from '../../../shared/metrics';
@@ -9,17 +14,36 @@ import { Skeleton } from '../../components/Skeleton';
 import s from './DashboardPage.module.css';
 
 /**
- * Panel — Mərhələ 2 versiyası: hero + ikinci sıra KPI-lar, rəqəmlər shared/metrics.ts-dən (SPEC §6.2 bənd 1–2).
- * Qrafiklər, filtr çipləri, sparkline-lar — Mərhələ 4.
+ * Panel (SPEC §6.2): görünüş (Cari / Optimizasiyadan sonra) və qlobal filtrlər (şirkət, fəaliyyət forması) URL-də;
+ * hero + KPI-lar + qrafiklər. Bütün rəqəmlər shared/metrics.ts və shared/dashboard.ts-dən.
  */
 export function DashboardPage() {
   const { t } = useI18n();
-  const [view, setView] = useState<View>('current');
+  const [params, setParams] = useSearchParams();
+  const view: View = params.get('view') === 'opt' ? 'opt' : 'current';
+  const company = params.get('company') ?? '';
+  const activity = params.get('activity') ?? '';
+  const filters: Filters = useMemo(() => ({ company: company || null, activity: activity || null }), [company, activity]);
+  const setParam = (k: string, v: string) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        if (v) n.set(k, v);
+        else n.delete(k);
+        return n;
+      },
+      { replace: true },
+    );
+  const setView = (v: View) => setParam('view', v === 'opt' ? 'opt' : '');
   const ready = useData((st) => st.ready);
   const tasks = useData((st) => st.data.tasks);
   const employees = useData((st) => st.data.employees);
   const settings = useData((st) => st.data.settings);
-  const m = useMemo(() => computeMetrics({ tasks, employees, settings }, { view }), [tasks, employees, settings, view]);
+  const m = useMemo(
+    () => computeMetrics({ tasks, employees, settings }, { view, filters }),
+    [tasks, employees, settings, view, filters],
+  );
+  const companies = useMemo(() => [...new Set(tasks.map((x) => x.company))].sort((a, b) => a.localeCompare(b, 'az')), [tasks]);
 
   if (!ready)
     return (
@@ -48,6 +72,20 @@ export function DashboardPage() {
           {(['current', 'opt'] as View[]).map((v) => (
             <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}>
               {v === 'current' ? t('dash.viewCurrent') : t('dash.viewOpt')}
+            </button>
+          ))}
+        </div>
+        <div className={s.seg} role="group" aria-label={t('field.company')}>
+          {['', ...companies].map((c) => (
+            <button key={c || 'all'} type="button" aria-pressed={company === c} onClick={() => setParam('company', c)}>
+              {c || t('dash.allCompanies')}
+            </button>
+          ))}
+        </div>
+        <div className={s.seg} role="group" aria-label={t('field.activity')}>
+          {['', ACT_ADMIN, ACT_PROJECT].map((a) => (
+            <button key={a || 'all'} type="button" aria-pressed={activity === a} onClick={() => setParam('activity', a)}>
+              {a === ACT_PROJECT ? t('dash.project') : a || t('dash.allActivities')}
             </button>
           ))}
         </div>
@@ -95,14 +133,16 @@ export function DashboardPage() {
       </section>
 
       <section className={s.kpis}>
-        <Kpi
-          icon={<Flame size={20} />}
-          label={t('kpi.over')}
-          testId="kpi-over"
-          value={String(m.over.length)}
-          unit={t('unit.people')}
-          foot={t('kpi.overFoot')}
-        />
+        <Link to="/employees?level=critical" className={s.kpiLink}>
+          <Kpi
+            icon={<Flame size={20} />}
+            label={t('kpi.over')}
+            testId="kpi-over"
+            value={String(m.over.length)}
+            unit={t('unit.people')}
+            foot={t('kpi.overFoot')}
+          />
+        </Link>
         <Kpi
           icon={<Ban size={20} />}
           label={t('kpi.cancelled')}
@@ -139,7 +179,16 @@ export function DashboardPage() {
           ))}
         </div>
       )}
-      <p className={s.note}>{t('dash.more')}</p>
+      <Suspense
+        fallback={
+          <div style={{ marginTop: 16, display: 'grid', gap: 16 }} aria-busy="true" aria-label={t('state.loading')}>
+            <Skeleton height={170} radius={16} />
+            <Skeleton height={520} radius={16} />
+          </div>
+        }
+      >
+        <DashboardWidgets view={view} filters={filters} m={m} />
+      </Suspense>
     </>
   );
 }

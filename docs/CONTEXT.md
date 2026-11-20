@@ -47,6 +47,7 @@ Başlanğıc rəqəmləri (yoxlama üçün): 341 tapşırıq, aktiv illik iş h�
 | v2 M1 | Server TS-ə, `updateMask`, Zod, `/api/me`, qızıl testlər, React/Vite skeleti (shell, login, tokenlər), CI — `docs/ADR-001-foundation.md` | SPEC Mərhələ 1 (Təməl) |
 | v2 M2 | Zustand store, sync (`_v` ziddiyyəti tranzaksiya ilə, səssiz birləşdirmə, IndexedDB + offline növbə, redo), `shared/metrics.ts`, minimal Panel — `docs/ADR-002-data-layer.md` | SPEC Mərhələ 2 (Data qatı) |
 | v2 M3 | Tapşırıqlar cədvəli, panel, ötürmə dialoqu, əməkdaşlar + profil, birləşdirmə, jurnal, komanda paleti; idempotent yazma düzəlişi — `docs/ADR-003-tasks-employees.md` | SPEC Mərhələ 3 |
+| v2 M4 | Panel: qlobal filtrlər, 9 qrafik (ECharts SVG), ştat cədvəli, cədvəl görünüşü, tünd tema, axe və vizual testlər — `docs/ADR-004-dashboard.md` | SPEC Mərhələ 4 |
 
 ## 4. Əsas qərarlar (ADR xülasəsi)
 

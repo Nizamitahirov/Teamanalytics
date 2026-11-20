@@ -77,20 +77,25 @@ export function levelOf(load: number, warnPct: number): LoadLevel {
   return 'good';
 }
 
+/** Filtrə uyğun tapşırıqlar (§7.2: fəaliyyət forması cari icraçının profilindən). Panel qrafikləri də bunu işlədir. */
+export function filterScope(input: Pick<MetricsInput, 'tasks' | 'employees'>, filters: Filters = {}) {
+  const emp = new Map(input.employees.map((e) => [e.name, e]));
+  const activityOf = (name: string) => emp.get(name)?.activity ?? ACT_ADMIN;
+  const scope = input.tasks.filter(
+    (t) =>
+      (!filters.company || t.company === filters.company) && (!filters.activity || activityOf(curOwner(t)) === filters.activity),
+  );
+  return { emp, activityOf, scope, active: scope.filter((t) => !t.is_cancelled) };
+}
+
 export function computeMetrics(
   input: MetricsInput,
   { view = 'current', filters = {} }: { view?: View; filters?: Filters } = {},
 ): Metrics {
-  const { tasks, employees, settings } = input;
+  const { settings } = input;
   const N = settings.norm;
   const year = input.year ?? new Date().getFullYear();
-  const emp = new Map(employees.map((e) => [e.name, e]));
-  const activityOf = (name: string) => emp.get(name)?.activity ?? ACT_ADMIN;
-  const inScope = (t: TaskExt) =>
-    (!filters.company || t.company === filters.company) && (!filters.activity || activityOf(curOwner(t)) === filters.activity);
-
-  const scope = tasks.filter(inScope);
-  const active = scope.filter((t) => !t.is_cancelled);
+  const { emp, activityOf, scope, active } = filterScope(input, filters);
 
   // §7.3 Tutum
   const absenceHours = new Map<string, number>();

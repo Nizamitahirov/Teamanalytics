@@ -58,16 +58,13 @@
   font-variant-numeric: tabular-nums;
 }
 .critical {
-  color: var(--critical);
+  color: var(--critical-text);
 }
 .warning {
-  color: #a86b00;
-}
-:global([data-theme='dark']) .warning {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 .good {
-  color: var(--good);
+  color: var(--good-text);
 }
 .idle {
   color: var(--muted);

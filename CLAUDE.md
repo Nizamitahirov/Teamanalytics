@@ -31,7 +31,8 @@ shared/                 Həm server, həm klient
   constants.ts          Sabitlər (Zod-suz — klient bundle-ı üçün)
   schema.ts             Zod: Task, Employee, LogEntry, Settings, Role, Op (+ v, base), OpsBody, Conflict, OpsResponse
   model.ts              normalizeTask/Employee, curOwner, statusOf, diffOps (yalnız dəyişən sahələr + v/base)
-  metrics.ts            SPEC §7 formulaları — TƏK MƏNBƏ (Panel və hesabatlar buradan)
+  metrics.ts            SPEC §7 formulaları — TƏK MƏNBƏ (Panel və hesabatlar buradan); filterScope
+  dashboard.ts          Panel vidjetlərinin datası (bullet, Sankey, treemap, heatmap, waterfall, Pareto, histogram, ştat cədvəli)
   search.ts             Axtarış normallaşdırması (ə/e, ı/i, ö/o, ü/u, ş/s, ç/c, ğ/g)
   taskFilter.ts         Tapşırıq filtrləri və sürətli çiplər (saf funksiya)
   format.ts             Rəqəm formatı (minlik U+202F, onluq vergül) — Intl istifadə olunmur (ADR-002)
@@ -42,6 +43,7 @@ src/                    v2 React klienti (Vite, React 19, React Router, CSS Modu
   store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), actions (ötür/ləğv/düzəliş/birləşdir), persist (IndexedDB), useSyncLoop
   features/             auth, dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), log, palette (Ctrl+K, qısayollar), sync, placeholder
   components/           Button, IconButton, Modal, Drawer, Toaster, EmployeePicker (combobox), Badges, Form.module.css, EmptyState, Skeleton
+  charts/               ECharts (modul, SVG renderer), theme.ts (açıq/tünd), options/*.ts (saf: data → option + cədvəl + xülasə), ChartFrame
   hooks/                useFocusTrap, useMedia, useMetrics
   lib/                  api klienti, i18n, mövzu (açıq/tünd/sistem), storage
   styles/               tokens.css (SPEC §12.1), base.css, fonts.css (Inter latin + latin-ext)
@@ -49,7 +51,7 @@ index.html vite.config.ts   v2 giriş nöqtəsi; publicDir = static/ (v1 public/
 data/seed.json          İlkin data: 341 tapşırıq + 23 əməkdaş (ictimai deyil, yalnız serverdə oxunur)
 dev/mock-firestore.ts   Firestore REST mock (yaddaşda) — dev server və server testləri üçün
 dev/mock-server.ts      Lokal server: Vercel emulyasiyası (public/ + api/*.ts) + mock Firestore
-dev/e2e/                v2 Playwright testləri (TS)
+dev/e2e/                v2 Playwright testləri (TS); vizual etalonlar *-snapshots/ (yeniləmək: --update-snapshots)
 dev/e2e.py              v1 Playwright testi (Python) — v1 klienti TS serverə qarşı
 tests/golden/           Qızıl rəqəmlər (SPEC §13.2) — v1 formulalarının TS köçürməsi; HEÇ VAXT silinmir
 tests/server/ tests/unit/   API (mock Firestore ilə), buildWrites, Zod, i18n
@@ -61,7 +63,7 @@ SPEC.md                 v2 spesifikasiyası
 
 ```bash
 npm run dev        # http://localhost:8765 — v1 klienti + TS API, mock Firestore (giriş: Ecosystem / Ecosystem)
-                   # http://localhost:8791 — mock bazanın JSON görüntüsü + API çağırış siyahısı
+                   # http://localhost:8791 — mock bazanın JSON görüntüsü + API çağırış siyahısı; POST /reset — bazanı sıfırla
 npm run dev:v2     # http://localhost:5173 — v2 klienti (Vite); /api → 8765 (npm run dev ayrıca işləməlidir)
 npm run typecheck  # tsc: server (tsconfig.json, NodeNext) + klient (tsconfig.app.json) + testlər (tsconfig.test.json)
 npm run lint       # ESLint (typescript-eslint, react-hooks, jsx-a11y); public/ istisnadır
@@ -161,7 +163,8 @@ Qadağalar:
 ## 10. Bilinən problemlər / texniki borc
 
 - `app.js` tək fayl, `innerHTML` ilə tam yenidən render; hər dəyişiklikdə bütün aktiv bölmə yenidən çəkilir (341 sətirdə problem deyil, 5 000+ sətirdə yavaşlayacaq).
-- Rəqəm formatı `toLocaleString('az-AZ')` — bəzi brauzerlərdə az-AZ ICU yoxdursa `27,850` kimi görünür.
+- Rəqəm formatı (v1) `toLocaleString('az-AZ')` — bəzi brauzerlərdə `27,850` kimi görünür (v2-də düzəldilib, ADR-002).
+- Vizual etalonlar Linux Chromium-da çəkilib; başqa platformada fərqlənə bilər.
 - Tombstone-lar və jurnal sonsuz böyüyür; arxivləmə yoxdur.
 - ~~`applyOps` upsert-də tam sənədi əvəz edir~~ — **Mərhələ 1-də düzəldilib** (`updateMask`, SPEC §15.3; test: `tests/server/api.test.ts`).
 - Rollar yoxdur: hər istifadəçi hər şeyi edə, istifadəçi silə bilər.

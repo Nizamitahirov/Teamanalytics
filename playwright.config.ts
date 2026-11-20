@@ -11,6 +11,8 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'off',
+    // Ekran şəkilləri animasiyanın ortasında çəkilməsin (həm də hərəkət azaldılması rejimini yoxlayır)
+    reducedMotion: 'reduce',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [

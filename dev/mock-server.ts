@@ -65,9 +65,14 @@ http
   })
   .listen(PORT, () => console.log(`dev ready → http://localhost:${PORT}`));
 
+// 8791: mock bazanın görüntüsü (GET) və sıfırlama (POST /reset — e2e testləri təmiz baza ilə başlamaq üçün)
 http
-  .createServer((_req, res) => {
+  .createServer((req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    if (req.method === 'POST' && req.url === '/reset') {
+      fsMock.reset();
+      return res.end('{"ok":true}');
+    }
     res.end(JSON.stringify({ calls: fsMock.calls, docs: fsMock.dump() }));
   })
   .listen(8791);

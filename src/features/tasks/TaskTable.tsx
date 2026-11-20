@@ -251,12 +251,14 @@ export function TaskTable({
             <button
               type="button"
               className={s.numBtn}
-              aria-label={t('tasks.editHours', { name: row.original.task })}
+              title={t('tasks.editHoursShort')}
               onClick={(e) => {
                 e.stopPropagation();
                 setEditing({ id: row.original.id, field: 'hours' });
               }}
             >
+              {/* Görünən mətn adın içində qalsın (WCAG 2.5.3 — label in name) */}
+              <span className="visually-hidden">{t('tasks.editHours', { name: row.original.task })}: </span>
               {formatNumber(row.original.hours, 1)}
             </button>
           ),
