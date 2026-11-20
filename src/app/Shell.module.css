@@ -215,6 +215,16 @@
 .collapseBtn {
   justify-self: end;
 }
+.version {
+  justify-self: start;
+  margin-top: calc(-1 * var(--sp-2));
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.collapsed .version {
+  display: none;
+}
 .collapsed .collapseBtn {
   justify-self: center;
 }

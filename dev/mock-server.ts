@@ -26,7 +26,7 @@ const types: Record<string, string> = {
 };
 const handlers = new Map<string, Handler>();
 async function loadHandler(name: string): Promise<Handler | null> {
-  if (!/^[a-z]+$/.test(name)) return null;
+  if (!/^[a-z]+(\/[a-z]+)?$/.test(name)) return null;
   if (!handlers.has(name)) {
     try {
       const mod = await import(pathToFileURL(path.join(ROOT, 'api', `${name}.ts`)).href);

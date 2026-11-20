@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Download, LineChart } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useI18n } from '../../lib/i18n';
 import { useData } from '../../store';
 import { Button } from '../../components/Button';
 import { LoadChip } from '../../components/Badges';
 import { ChartFrame } from '../../charts/ChartFrame';
+import { trendOption } from '../../charts/options/trend';
+import { fetchSnapshots, isoDay, type SnapshotData } from '../../lib/snapshots';
 import { useChartTheme } from '../../charts/useChartTheme';
 import { companyColor } from '../../charts/theme';
 import { capacityOption } from '../../charts/options/capacity';
@@ -266,17 +268,7 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
         background={bg}
       />
 
-      <section
-        className={`${s.s12} ${s.cell}`}
-        style={{ background: 'var(--surface)', borderRadius: 'var(--r-lg)', padding: 'var(--sp-4) var(--sp-5)' }}
-        data-testid="w-trend"
-      >
-        <h2 style={{ margin: 0, fontSize: 'var(--fs-16)', fontWeight: 800 }}>{t('dash.w.trend')}</h2>
-        <div className={s.empty}>
-          <LineChart size={28} aria-hidden="true" />
-          <p>{t('dash.e.trend')}</p>
-        </div>
-      </section>
+      <TrendWidget company={filters.company ?? ''} />
 
       <section
         className={`${s.s12} ${s.cell}`}
@@ -342,5 +334,48 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
         </div>
       </section>
     </div>
+  );
+}
+
+/** Trend (SPEC §14): son 90 günün gündəlik snapshot-ları; şirkət filtri varsa həmin şirkət. */
+function TrendWidget({ company }: { company: string }) {
+  const { t } = useI18n();
+  const th = useChartTheme();
+  const [list, setList] = useState<SnapshotData[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const to = isoDay(new Date());
+    const from = isoDay(new Date(Date.now() - 90 * 864e5));
+    fetchSnapshots(from, to)
+      .then((r) => alive && setList(r))
+      .catch(() => alive && setFailed(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const data = useMemo(
+    () => (list ?? []).map((x) => (company && x.byCompany[company] ? { ...x, total: x.byCompany[company] } : x)),
+    [list, company],
+  );
+  const spec = useMemo(() => trendOption(data, th, t), [data, th, t]);
+  if (failed) return null;
+  if (!list || data.length < 2)
+    return (
+      <section className={`${s.s12} ${s.trendEmpty}`} data-testid="w-trend" aria-labelledby="trend-t">
+        <h2 id="trend-t">{t('trend.title')}</h2>
+        <p>{list ? t('trend.empty', { n: data.length }) : t('state.loading')}</p>
+      </section>
+    );
+  return (
+    <ChartFrame
+      className={s.s12}
+      testId="w-trend"
+      title={t('trend.title')}
+      subtitle={t('trend.sub')}
+      info={t('trend.info')}
+      spec={spec}
+      background={th.surface}
+    />
   );
 }

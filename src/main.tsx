@@ -9,8 +9,11 @@ import { AuthProvider } from './app/auth';
 import { router } from './app/router';
 import { I18nProvider } from './lib/i18n';
 import { applyTheme, initialTheme } from './lib/theme';
+import { installErrorReporting, registerServiceWorker } from './lib/ops';
 
 applyTheme(initialTheme());
+installErrorReporting();
+registerServiceWorker();
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>

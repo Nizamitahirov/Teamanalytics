@@ -153,11 +153,16 @@ export function ReportsPage() {
         </div>
       </section>
 
-      <section className={`${s.card} ${s.disabled}`} aria-labelledby="r-period">
+      <section className={s.card} aria-labelledby="r-period">
         <h2 id="r-period">
           <CalendarRange size={20} aria-hidden="true" /> {t('rep.period.title')}
         </h2>
         <p>{t('rep.period.desc')}</p>
+        <div className={s.actions}>
+          <Link className={`${s.linkBtn} ${s.linkPrimary}`} to="/reports/period">
+            {t('rep.open')}
+          </Link>
+        </div>
       </section>
 
       <section className={s.card} aria-labelledby="r-xlsx">

@@ -16,6 +16,8 @@ import {
 import { BrandMark } from '../components/BrandMark';
 import { IconButton } from '../components/Button';
 import { NotificationsButton } from '../features/notifications/NotificationsButton';
+import { BUILD_COMMIT, versionLabel } from '../lib/ops';
+import { toast } from '../lib/toast';
 import { useI18n } from '../lib/i18n';
 import { storage } from '../lib/storage';
 import { useTheme } from '../lib/theme';
@@ -53,6 +55,14 @@ export function Shell({ me }: { me: MeResponse }) {
     await authLogout();
   }, [authLogout]);
   const { theme, cycle } = useTheme();
+  // Yeni deploy (SPEC §14): server başqa commit qaytarırsa bir dəfə "Yeni versiya var — yenilə"
+  const serverCommit = useData((st) => st.serverCommit);
+  const announced = useRef(false);
+  useEffect(() => {
+    if (announced.current || !serverCommit || !BUILD_COMMIT || serverCommit === BUILD_COMMIT) return;
+    announced.current = true;
+    toast(t('ops.newVersion'), { action: { label: t('ops.reload'), fn: () => window.location.reload() }, ms: 600_000 });
+  }, [serverCommit, t]);
   const { canEdit } = useCan();
   // Yalnız baxış rolu: store yazmaları bloklayır (müdafiə qatı — server də 403 qaytarır)
   useEffect(() => {
@@ -140,6 +150,9 @@ export function Shell({ me }: { me: MeResponse }) {
               <LogOut size={18} aria-hidden="true" />
             </button>
           </div>
+          <small className={s.version} data-testid="app-version">
+            {versionLabel()}
+          </small>
           <button
             type="button"
             className={`${s.sideBtn} ${s.collapseBtn}`}

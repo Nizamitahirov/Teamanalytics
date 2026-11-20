@@ -13,6 +13,8 @@ export default tseslint.config(
     files: ['api/**/*.ts', 'server/**/*.ts', 'shared/**/*.ts', 'dev/**/*.ts', 'tests/**/*.ts', '*.config.{js,ts}'],
     languageOptions: { globals: globals.node },
   },
+  // Service worker (PWA, SPEC §6.11)
+  { files: ['static/sw.js'], languageOptions: { globals: globals.serviceworker } },
   {
     files: ['src/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },

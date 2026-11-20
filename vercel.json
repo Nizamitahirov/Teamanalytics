@@ -84,5 +84,11 @@
       "destination": "/legacy/",
       "permanent": false
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/daily",
+      "schedule": "50 19 * * *"
+    }
   ]
 }

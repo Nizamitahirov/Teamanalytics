@@ -145,3 +145,19 @@
 .link:hover {
   text-decoration: underline;
 }
+
+.trendEmpty {
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.trendEmpty h2 {
+  margin: 0;
+  font-size: var(--fs-16);
+}
+.trendEmpty p {
+  margin: var(--sp-2) 0 0;
+  color: var(--muted);
+  font-size: var(--fs-14);
+}

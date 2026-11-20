@@ -12,6 +12,8 @@ const CSP = [
   "img-src 'self' data: blob:",
   "font-src 'self'",
   "connect-src 'self'",
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
@@ -25,6 +27,8 @@ const cspPlugin = (): Plugin => ({
 
 export default defineConfig({
   plugins: [react(), cspPlugin()],
+  // Build anındakı commit (Vercel) — UI-da versiya və "Yeni versiya var" yoxlaması (SPEC §14)
+  define: { __COMMIT__: JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7)) },
   publicDir: 'static',
   server: {
     port: 5173,

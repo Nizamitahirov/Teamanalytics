@@ -11,10 +11,12 @@ export type TestApi = { base: string; fs: MockFirestore; close: () => Promise<vo
 export async function startApi(): Promise<TestApi> {
   const fs = await startMockFirestore();
   Object.assign(process.env, mockEnv(fs.url));
-  const names = ['login', 'logout', 'me', 'data', 'ops', 'log', 'users', 'health', 'scenarios', 'notifications'];
+  const names = ['login', 'logout', 'me', 'data', 'ops', 'log', 'users', 'health', 'scenarios', 'notifications', 'snapshots'];
   const handlers = Object.fromEntries(
     await Promise.all(names.map(async (n) => [n, (await import(`../../api/${n}.ts`)).default as Handler])),
   );
+  // Alt qovluqdakı funksiya (Vite dinamik importu bir səviyyəli dəyişən yolu dəstəkləyir)
+  handlers['cron/daily'] = (await import('../../api/cron/daily.js')).default as Handler;
   const server = http.createServer((req, res) => {
     const h = handlers[new URL(req.url || '/', 'http://x').pathname.replace('/api/', '')];
     if (!h) {

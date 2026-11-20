@@ -53,6 +53,8 @@ export type DataStoreState = {
   /** Ssenarilər (SPEC §6.5) və bu istifadəçinin bildirişləri — /api/data ilə (deltada) gəlir */
   scenarios: Scenario[];
   notifications: Notification[];
+  /** Serverin deploy commit-i (/api/data) — yeni versiya aşkarlanması üçün */
+  serverCommit: string | null;
   /** Server cavabından sonra lokal siyahını dərhal yenilə (növbəti yoxlamanı gözləmədən) */
   putScenario(sc: Scenario | null, id?: string): void;
   markRead(ids: string[]): void;
@@ -87,6 +89,7 @@ type ServerData = {
   log?: LogEntry[];
   scenarios?: (Record<string, unknown> & { _deleted?: boolean })[];
   notifications?: Notification[];
+  commit?: string | null;
 };
 
 export type DataStoreDeps = {
@@ -294,6 +297,7 @@ export function createDataStore(deps: DataStoreDeps) {
       conflicts: [],
       scenarios: [],
       notifications: [],
+      serverCommit: null,
       readOnly: false,
       setReadOnly: (v) => set({ readOnly: v }),
 
@@ -335,6 +339,7 @@ export function createDataStore(deps: DataStoreDeps) {
           throw e;
         }
         if (d.user && d.user !== get().user) set({ user: d.user });
+        if (d.commit && d.commit !== get().serverCommit) set({ serverCommit: d.commit });
         // Göndərilməmiş dəyişiklik varsa serverdən gələni hələ tətbiq etmə (öz dəyişikliyimiz itməsin)
         if (get().queue.length || get().sending) return false;
         applyServerData(d);

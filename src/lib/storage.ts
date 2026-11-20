@@ -7,6 +7,13 @@ export const storage = {
       return null;
     }
   },
+  remove(key: string): void {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* gizli rejim və s. */
+    }
+  },
   set(key: string, value: string): void {
     try {
       localStorage.setItem(key, value);

@@ -149,3 +149,42 @@
     padding: var(--sp-4);
   }
 }
+
+/* Data / Texniki xidmət (Mərhələ 9) */
+.opsActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+  margin: var(--sp-3) 0 var(--sp-4);
+}
+.opsLink {
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--fs-14);
+}
+.kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+}
+.kv div {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.kv dt {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+.kv dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.restoreStats {
+  margin: 0 0 var(--sp-4);
+  padding-left: 20px;
+  line-height: 1.7;
+}

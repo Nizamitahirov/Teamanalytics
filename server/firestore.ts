@@ -198,7 +198,8 @@ function fromDoc(d: FsDocument): Doc {
 }
 
 /* ---------- oxuma ---------- */
-async function listAll(coll: string): Promise<Doc[]> {
+/** Kolleksiyanın bütün sənədləri (tombstone-lar daxil). */
+export async function listAll(coll: string): Promise<Doc[]> {
   const out: Doc[] = [];
   let pageToken: string | undefined;
   do {
@@ -266,7 +267,8 @@ export async function readData(since: string | null, viewer = ''): Promise<DataR
   const meta = await getMeta();
   const ts = meta ? meta.updated : null;
   if (since && ts && since === ts) return { unchanged: true, ts, settings: settingsOf(meta) };
-  if (since && ts) {
+  // Tombstone-lar 90 gündən sonra silinir (server/daily.ts) — daha köhnə `since` üçün delta silinmələri itirər → tam yükləmə
+  if (since && ts && Date.parse(since) >= Date.now() - 89 * 864e5) {
     const [tasks, employees, log, scenarios, notifications] = await Promise.all([
       query('tasks', { since }),
       query('employees', { since }),
@@ -374,6 +376,36 @@ export function upsertWrite(coll: string, key: string, row: Record<string, unkno
     updateMask: { fieldPaths: Object.keys(fields).map(fieldPath) },
     updateTransforms: stampV,
   };
+}
+
+/** Xam yazılar. Partiyada meta/main yazısı varsa `updated` avtomatik yenilənmir (klientlər delta almır). */
+export const commitRaw = (writes: FsWrite[]) => commit(writes);
+export const docDelete = (coll: string, id: string): FsWrite => ({ delete: docName(coll, id) });
+/** meta/main-ə `updated`-i dəyişmədən sahə yazır (cron: last_snapshot, last_backup). */
+export function metaFieldsWrite(fields: Record<string, unknown>): FsWrite {
+  const f = toFields(fields);
+  return { update: { name: docName('meta', 'main'), fields: f }, updateMask: { fieldPaths: Object.keys(f) } };
+}
+/** Sənədi yalnız verilən sahələrlə yazır (+ `_ts`), versiya artırılmır (snapshot/backup/xəta). */
+export function plainWrite(coll: string, id: string, row: Record<string, unknown>): FsWrite {
+  const fields = toFields(row);
+  return { update: { name: docName(coll, id), fields }, updateTransforms: stamp };
+}
+/** Sahə üzrə aralıq sorğusu (eyni sahədə iki aralıq filtri kompozit indeks tələb etmir), sahəyə görə sıralı. */
+export async function queryRange(coll: string, field: string, from: string, to: string, limit = 400): Promise<Doc[]> {
+  const ff = (op: string, v: string) => ({ fieldFilter: { field: { fieldPath: field }, op, value: toValue(v) } });
+  const j = (await fs(`${docsRoot()}:runQuery`, {
+    method: 'POST',
+    body: {
+      structuredQuery: {
+        from: [{ collectionId: coll }],
+        where: { compositeFilter: { op: 'AND', filters: [ff('GREATER_THAN_OR_EQUAL', from), ff('LESS_THAN_OR_EQUAL', to)] } },
+        orderBy: [{ field: { fieldPath: field }, direction: 'ASCENDING' }],
+        limit,
+      },
+    },
+  })) as { document?: FsDocument }[];
+  return (j || []).filter((r) => r.document).map((r) => fromDoc(r.document as FsDocument));
 }
 
 async function commit(writes: FsWrite[], transaction?: string): Promise<void> {

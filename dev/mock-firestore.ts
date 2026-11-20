@@ -1,5 +1,5 @@
 // Firestore REST API-nin yaddaşda təqlidi — lokal dev server və server testləri üçün.
-// Dəstəklənir: :commit (update/updateMask/updateTransforms/delete), :runQuery (_ts filtri, EQUAL filtri, sıralama, limit),
+// Dəstəklənir: :commit (update/updateMask/updateTransforms/delete), :runQuery (sahə/kompozit filtrlər, sıralama, limit),
 // sənəd GET, kolleksiya siyahısı (pageSize). Real Firebase-ə toxunmur.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -121,22 +121,47 @@ export async function startMockFirestore({ port = 0, latencyMs = 0 } = {}): Prom
       const q = j.structuredQuery;
       const coll = q.from[0].collectionId;
       let list = [...docs.keys()].filter((n) => short(n).split('/')[0] === coll).map(docOut);
-      if (q.where) {
-        const ff = q.where.fieldFilter;
-        if (ff.op === 'EQUAL') {
-          const want = JSON.stringify(Object.values(ff.value)[0]);
-          list = list.filter((d) => {
-            const v = d.fields?.[ff.field.fieldPath];
-            return v !== undefined && JSON.stringify(Object.values(v)[0]) === want;
-          });
-        } else {
-          const since = ff.value.timestampValue;
-          list = list.filter((d) => tsOf(d.fields?._ts) > since);
+      // Filtrlər: fieldFilter (EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL) və compositeFilter AND
+      type FF = { field: { fieldPath: string }; op: string; value: Value };
+      const val = (v: Value | undefined) => {
+        if (!v) return undefined;
+        if ('timestampValue' in v) return tsOf(v);
+        if ('integerValue' in v) return Number(v.integerValue);
+        return Object.values(v)[0] as unknown;
+      };
+      const test = (d: { fields?: Fields }, f: FF) => {
+        const a = val(d.fields?.[f.field.fieldPath]);
+        const b = val(f.value);
+        if (a === undefined) return false;
+        switch (f.op) {
+          case 'EQUAL':
+            return JSON.stringify(a) === JSON.stringify(b);
+          case 'GREATER_THAN':
+            return (a as string) > (b as string);
+          case 'GREATER_THAN_OR_EQUAL':
+            return (a as string) >= (b as string);
+          case 'LESS_THAN':
+            return (a as string) < (b as string);
+          case 'LESS_THAN_OR_EQUAL':
+            return (a as string) <= (b as string);
+          default:
+            return false;
         }
+      };
+      if (q.where) {
+        const filters: FF[] = q.where.compositeFilter
+          ? q.where.compositeFilter.filters.map((x: { fieldFilter: FF }) => x.fieldFilter)
+          : [q.where.fieldFilter];
+        list = list.filter((d) => filters.every((f) => test(d, f)));
       }
       if (q.orderBy) {
+        const fp = q.orderBy[0].field.fieldPath;
         const desc = q.orderBy[0].direction === 'DESCENDING';
-        list.sort((a, b) => (tsOf(a.fields?._ts) < tsOf(b.fields?._ts) ? -1 : 1) * (desc ? -1 : 1));
+        list.sort((x, y) => {
+          const a = String(val(x.fields?.[fp]) ?? '');
+          const b = String(val(y.fields?.[fp]) ?? '');
+          return (a < b ? -1 : a > b ? 1 : 0) * (desc ? -1 : 1);
+        });
       }
       if (q.limit) list = list.slice(0, q.limit);
       return out(list.length ? list.map((document) => ({ document, readTime: nowTs() })) : [{ readTime: nowTs() }]);

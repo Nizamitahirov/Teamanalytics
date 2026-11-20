@@ -14,7 +14,7 @@ beforeAll(async () => {
   fsMock = await startMockFirestore();
   Object.assign(process.env, mockEnv(fsMock.url));
   delete process.env.AUTH_SECRET;
-  const names = ['login', 'logout', 'me', 'data', 'ops', 'log', 'users', 'health', 'scenarios', 'notifications'];
+  const names = ['login', 'logout', 'me', 'data', 'ops', 'log', 'users', 'health', 'scenarios', 'notifications', 'snapshots'];
   const handlers = Object.fromEntries(
     await Promise.all(names.map(async (n) => [n, (await import(`../../api/${n}.ts`)).default as Handler])),
   );

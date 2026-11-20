@@ -16,7 +16,13 @@ export default async function handler(req: Req, res: Res) {
       const initial = JSON.parse(await readFile(new URL('../data/seed.json', import.meta.url), 'utf8'));
       if (await seed(initial, user.name)) data = await readData(null, user.name);
     }
-    send(res, 200, { user: user.name, role: user.role, ...data });
+    // commit — klient yeni deploy-u aşkarlayır ("Yeni versiya var — yenilə", SPEC §14)
+    send(res, 200, {
+      user: user.name,
+      role: user.role,
+      commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || null,
+      ...data,
+    });
   } catch (e) {
     fail(res, e);
   }

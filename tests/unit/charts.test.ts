@@ -102,3 +102,23 @@ describe('qrafik option-ları', () => {
     expect(only[0].itemStyle.color).toBe(all.find((d) => d.name === 'Pashapay')!.itemStyle.color);
   });
 });
+
+describe('trend (Mərhələ 9)', () => {
+  it('iki xətt (lazım / mövcud), ikinci y oxu yoxdur, cədvəl və xülasə', async () => {
+    const { trendOption } = await import('../../src/charts/options/trend.js');
+    const { buildSnapshot } = await import('../../shared/snapshot.js');
+    const { lightTheme } = await import('../../src/charts/theme.js');
+    const a = buildSnapshot({ ...input, settings: { ...DEFAULT_SETTINGS } }, '2026-11-19');
+    const b = buildSnapshot({ ...input, settings: { ...DEFAULT_SETTINGS } }, '2026-11-20');
+    const spec = trendOption(
+      [a, b],
+      lightTheme,
+      (k: string, v?: Record<string, string | number>) => `${k}${v ? JSON.stringify(v) : ''}`,
+    );
+    const o = spec.option as { series: { type: string }[]; yAxis: unknown };
+    expect(o.series.map((x) => x.type)).toEqual(['line', 'line']);
+    expect(Array.isArray(o.yAxis)).toBe(false);
+    expect(spec.table.rows).toHaveLength(2);
+    expect(spec.summary).toContain('"over":7');
+  });
+});

@@ -22,11 +22,12 @@ Vercel: `buildCommand = npm run build:vercel` (v2 → `dist/`, `public/` → `di
 ```
 public/                 v1 klienti — canlıda /legacy/ (ehtiyat; yönləndirmələr nisbi)
   index.html login.html app.js styles.css vendor/
-api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health, scenarios, notifications
+api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health (+ klient xətaları), scenarios, notifications, snapshots (+ backup-lar), cron/daily — 12 (Hobby limiti, yenisini əlavə etmə)
 server/                 Server məntiqi (Vercel-dən asılı deyil, testlənir)
   firestore.ts          Firestore REST klienti; upsert = updateMask, `_v` increment, tranzaksiya + resolveVersions (ziddiyyət)
   auth.ts               PBKDF2 parol, sessiya (__Host- cookie, sv), Firestore kilidi, parol siyasəti, rollar, ip_hash
   scenarios.ts          Ssenari əməliyyatları + təsdiq axını + bildirişlər (ADR-006)
+  daily.ts              Gündəlik iş: snapshot + backup + təmizlik (ADR-011)
   http.ts               requireUser(minRole) — RBAC + CSRF + limit; send/sendError ({error, code}), parseBody (Zod)
   commonPasswords.ts    Ən çox yayılmış 1000 parol (generasiya olunub, mənbə faylda)
 shared/                 Həm server, həm klient
@@ -37,6 +38,7 @@ shared/                 Həm server, həm klient
   scenario.ts           Ssenari dəyişiklik qurucuları + scenarioImpact; scenarioDoc.ts — sənəd → Scenario
   rebalance.ts          SPEC §8 balanslama alqoritmi
   optimization.ts       Optimizasiya portfeli (§6.6); health.ts — Data sağlamlığı yoxlamaları (§6.8)
+  snapshot.ts           Gündəlik snapshot (§7.10) — Panel ilə eyni formulalar
   report.ts             Hesabat datası + avtomatik şərh (§6.7); excel.ts — export vərəqləri, sütun xəritəsi, import diff (§9)
   metrics.ts            SPEC §7 formulaları — TƏK MƏNBƏ (Panel və hesabatlar buradan); filterScope
   dashboard.ts          Panel vidjetlərinin datası (bullet, Sankey, treemap, heatmap, waterfall, Pareto, histogram, ştat cədvəli)
@@ -95,6 +97,7 @@ npm run ci         # typecheck + lint + format + test + build
 |---|---|---|
 | `FIREBASE_SERVICE_ACCOUNT` | **bəli** | Service account JSON-un bütün məzmunu. Ad hərf/boşluq fərqinə dözümlüdür; `_JSON`, `_KEY` variantları və base64 da qəbul olunur (`lib/firestore.js → findServiceAccountVar`). |
 | `FIRESTORE_DATABASE` | yox | Baza ID-si `(default)` deyilsə |
+| `CRON_SECRET` | yox | Gündəlik iş üçün (Vercel `Authorization: Bearer` göndərir); yoxdursa yalnız Vercel cron agenti qəbul olunur. Tövsiyə olunur |
 | `AUTH_SECRET` | yox | Sessiya HMAC açarı və ip_hash duzu; yoxdursa service account açarından törədilir (SHA-256). Dəyişsə bütün sessiyalar bağlanır |
 
 Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç vaxt repo-ya yazma** (repo public-dir; Google sızan açarları avtomatik bloklayır). Dəyişən əlavə/dəyişdirildikdən sonra **Redeploy** lazımdır. Problem olduqda əvvəlcə `https://teamanalytics.vercel.app/api/health`-ə bax.
@@ -108,9 +111,12 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 | `tasks` | `id` (məs. `B-25`, `P-17`, `T-…`) | `id, company, process, category, task, description, owner_before, owner_after, min_per_key, annual_freq, unit, hours, after_opt, is_cancelled, updated_at, updated_by` + v2: `automation, automation_note, due_quarter, opt_before, opt_done_at, health_ignore` + sistem: `_ts`, `_deleted`, `_v` |
 | `employees` | `name` (dəqiq ad, məs. `Şöbə əməkdaşları`) | `name, company, activity, fte, is_group, active` + v2: `health_ignore` + `_ts`, `_deleted`, `_v` |
 | `log` | klientin yaratdığı `L-…` id | `ts, user, action, task_id, task_label, from, to, comment, group` + `_ts` (`group` — ssenari id-si) |
-| `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn`, `vacation_days` (default 30), `approval` (0/1), `approval_hours` (ayarlar) |
+| `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn`, `vacation_days` (default 30), `approval` (0/1), `approval_hours` (ayarlar), `last_snapshot`, `last_backup` (cron; `updated`-i dəyişmir) |
 | `scenarios` | `S-…` | `name, description, status (draft/pending/applied/archived), changes/summary/revert (JSON sətri), created_by/at, submitted_*, decided_*, decision_comment, applied_*, reverted_*` + `_ts`, `_deleted`, `_v` |
 | `notifications` | `N-…` | `to, kind, text, link, read, ts` + `_ts` — yalnız sahibinə göndərilir |
+| `snapshots` | `YYYY-MM-DD` (Bakı) | `date, data` (JSON: ümumi + şirkətlər üzrə KPI, yüklər) — trend, dövr müqayisəsi |
+| `backups` | `YYYY-MM-DD` + `…~n` hissələr | meta: `date, parts, created, tasks, employees, size`; hissə: gzip+base64 `data`; 30 gün |
+| `errors` | `E-…` | klient xətaları (`ts, user, message, stack, url, version, ua`), 30 gün |
 | `users` | ad kiçik hərflə (`ecosystem`) | `name, salt, hash, iter, active, created_by, role, session_version, must_change_password, failed_attempts, locked_until, last_login` — heş/duz **heç vaxt klientə göndərilmir** |
 
 - `_ts`: hər yazmada server vaxtı (`REQUEST_TIME` transform). Delta sinxronun əsası.
@@ -180,8 +186,8 @@ Qadağalar:
 - `app.js` tək fayl, `innerHTML` ilə tam yenidən render; hər dəyişiklikdə bütün aktiv bölmə yenidən çəkilir (341 sətirdə problem deyil, 5 000+ sətirdə yavaşlayacaq).
 - Rəqəm formatı (v1) `toLocaleString('az-AZ')` — bəzi brauzerlərdə `27,850` kimi görünür (v2-də düzəldilib, ADR-002).
 - Vizual etalonlar Linux Chromium-da çəkilib; başqa platformada fərqlənə bilər.
-- Tombstone-lar və jurnal sonsuz böyüyür; arxivləmə yoxdur.
+- Jurnal sonsuz böyüyür (arxivləmə yoxdur); tombstone-lar 90 gündən sonra cron ilə silinir (ADR-011).
 - ~~`applyOps` upsert-də tam sənədi əvəz edir~~ — **Mərhələ 1-də düzəldilib** (`updateMask`, SPEC §15.3; test: `tests/server/api.test.ts`).
-- Tarixi snapshot yoxdur → trend qrafikləri mümkün deyil.
+- Trend/dövr müqayisəsi gündəlik snapshot-lardan (ADR-011) — data cron işə düşdükcə yığılır.
 - Data keyfiyyəti: ad dublikatları (Farida/Fəridə, Kamila/Kamilə), təkrar sətirlər (`B-1770271295121` = `B-44`, `B-222` = `B-30`, `B-224` = `B-32`), id-siz sətir (`P-x71`), `P-29`-da saat uyğunsuzluğu — ətraflı `docs/CONTEXT.md`; v2-də `/health` səhifəsi aşkarlayır və düzəltməyə imkan verir (ADR-007).
 - Bütün bunlar `SPEC.md`-də həll olunur.
