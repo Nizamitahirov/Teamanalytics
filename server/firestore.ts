@@ -236,11 +236,13 @@ export const settingsOf = (meta: Doc | null): Record<string, Scalar> =>
 const logRow = (o: Doc) => ({ id: o._id, ...clean(o) });
 
 export type DataResponse =
-  | { unchanged: true; ts: Scalar; settings: Record<string, Scalar> }
+  | { unchanged: true; ts: Scalar; scen_ts: Scalar; settings: Record<string, Scalar> }
   | {
       delta?: true;
       full?: true;
       ts: Scalar;
+      /** Ssenari/bildiriş dəyişikliyinin son vaxtı — klient fərqlidirsə /api/scenarios-u yenidən oxuyur */
+      scen_ts: Scalar;
       settings: Record<string, Scalar>;
       tasks: Record<string, Scalar>[];
       employees: Record<string, Scalar>[];
@@ -251,7 +253,8 @@ export type DataResponse =
 export async function readData(since: string | null): Promise<DataResponse> {
   const meta = await getMeta();
   const ts = meta ? meta.updated : null;
-  if (since && ts && since === ts) return { unchanged: true, ts, settings: settingsOf(meta) };
+  const scen_ts = meta?.scen_ts ?? null;
+  if (since && ts && since === ts) return { unchanged: true, ts, scen_ts, settings: settingsOf(meta) };
   if (since && ts) {
     const [tasks, employees, log] = await Promise.all([
       query('tasks', { since }),
@@ -261,6 +264,7 @@ export async function readData(since: string | null): Promise<DataResponse> {
     return {
       delta: true,
       ts,
+      scen_ts,
       settings: settingsOf(meta),
       tasks: tasks.map((t) => ({ ...clean(t), id: t.id || t._id, _deleted: !!t._deleted })),
       employees: employees.map((e) => ({ ...clean(e), name: e.name || e._id, _deleted: !!e._deleted })),
@@ -275,6 +279,7 @@ export async function readData(since: string | null): Promise<DataResponse> {
   return {
     full: true,
     ts,
+    scen_ts,
     settings: settingsOf(meta),
     tasks: tasks.filter((t) => !t._deleted).map((t) => ({ ...clean(t), id: t.id || t._id })),
     employees: employees.filter((e) => !e._deleted).map((e) => ({ ...clean(e), name: e.name || e._id })),
@@ -508,6 +513,109 @@ export async function seed(
   ] as Op[];
   await applyOps(ops, user);
   return true;
+}
+
+/* ---------- ssenarilər və bildirişlər (SPEC §6.5, §4.5) ---------- */
+// Məlumat sinxronuna (meta.updated) toxunmur — əks halda hər ssenari yaddaşı bütün klientlərdə delta sorğusu
+// (3 oxuma) yaradardı. Əvəzinə meta.scen_ts yenilənir; /api/data onu hər cavabda qaytarır (əlavə oxuma yoxdur),
+// klient fərq görəndə /api/scenarios-u oxuyur.
+export const MAX_CHANGES_JSON = 900_000;
+const scenTouch = (): FsWrite => ({
+  update: { name: docName('meta', 'main'), fields: {} },
+  updateMask: { fieldPaths: [] },
+  updateTransforms: [{ fieldPath: 'scen_ts', setToServerValue: 'REQUEST_TIME' }],
+});
+async function commitScen(writes: FsWrite[]): Promise<void> {
+  await fs(`${docsRoot()}:commit`, { method: 'POST', body: { writes: [...writes, scenTouch()] } });
+}
+
+export type ScenarioDoc = { [k: string]: Scalar | unknown[]; id: string; changes: unknown[] };
+const scenOut = (d: Doc): ScenarioDoc => {
+  const { _id, _ts, _deleted, changes, ...rest } = d;
+  void _ts;
+  void _deleted;
+  let parsed: unknown[] = [];
+  try {
+    parsed = JSON.parse(String(changes ?? '[]'));
+  } catch {
+    parsed = [];
+  }
+  return { ...rest, id: _id, changes: parsed };
+};
+
+export async function listScenarios(): Promise<ScenarioDoc[]> {
+  const all = await listAll('scenarios');
+  return all.filter((d) => !d._deleted).map(scenOut);
+}
+export async function getScenario(id: string): Promise<(ScenarioDoc & { _v: number }) | null> {
+  const d = await fs(`${docsRoot()}/scenarios/${encodeURIComponent(id)}`, { allow404: true });
+  if (!d) return null;
+  const doc = fromDoc(d);
+  if (doc._deleted) return null;
+  return { ...scenOut(doc), _v: Number(doc._v) || 0 };
+}
+
+export type NotificationInput = { to: string; kind: string; text: string; link: string; from: string };
+const notifWrite = (n: NotificationInput, now: string): FsWrite => ({
+  update: {
+    name: docName('notifications', 'N-' + crypto.randomUUID()),
+    fields: toFields({ ...n, read: false, ts: now }),
+  },
+  updateTransforms: stamp,
+});
+
+/** Ssenarini yazır (yalnız verilən sahələr) + bildirişlər — bir commit-də. */
+export async function putScenario(
+  id: string,
+  fields: Record<string, Scalar | unknown[]>,
+  notify: NotificationInput[] = [],
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fields)) row[k] = Array.isArray(v) ? JSON.stringify(v) : v;
+  if (typeof row.changes === 'string' && row.changes.length > MAX_CHANGES_JSON)
+    throw new FirestoreError('Ssenari çox böyükdür', 413);
+  const now = new Date().toISOString();
+  await commitScen([upsertWrite('scenarios', id, row), ...notify.map((n) => notifWrite(n, now))]);
+}
+export async function deleteScenario(id: string): Promise<void> {
+  await commitScen([
+    {
+      update: { name: docName('scenarios', id), fields: { _deleted: { booleanValue: true } } },
+      updateMask: { fieldPaths: ['_deleted'] },
+      updateTransforms: stampV,
+    },
+  ]);
+}
+
+/** İstifadəçinin son bildirişləri (son 300 bildirişdən — tam kolleksiya oxunmur). */
+export async function listNotifications(userId: string, limit = 50) {
+  const all = await query('notifications', { orderDesc: true, limit: 300 });
+  return all
+    .filter((n) => n.to === userId)
+    .slice(0, limit)
+    .map((n) => ({ ...clean(n), id: n._id, read: !!n.read }));
+}
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  await commitScen(
+    ids.map((id) => ({
+      update: { name: docName('notifications', id), fields: { read: { booleanValue: true } } },
+      updateMask: { fieldPaths: ['read'] },
+      updateTransforms: stamp,
+    })),
+  );
+}
+
+/** Tapşırıqları id ilə oxuyur (təsdiq həddi yoxlaması üçün — yalnız lazım olan sənədlər). */
+export async function getTasks(ids: string[]): Promise<Map<string, Doc>> {
+  const out = new Map<string, Doc>();
+  if (!ids.length) return out;
+  const got = (await fs(`${docsRoot()}:batchGet`, {
+    method: 'POST',
+    body: { documents: ids.map((id) => docName('tasks', id)) },
+  })) as { found?: FsDocument }[];
+  for (const r of got) if (r.found) out.set(r.found.name.split('/').pop() as string, fromDoc(r.found));
+  return out;
 }
 
 /* ---------- istifadəçilər (giriş) — məlumat sinxronuna daxil deyil ---------- */

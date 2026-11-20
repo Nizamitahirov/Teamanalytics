@@ -26,7 +26,7 @@ describe('diffOps', () => {
     expect(diffOps(st(), st([t({ _v: 9 })]))).toEqual([]);
   });
   it('ayarlar', () => {
-    const cur = { ...st(), settings: { norm: 2000, warn: 85 } };
+    const cur = { ...st(), settings: { ...st().settings, norm: 2000 } };
     expect(diffOps(st(), cur)).toEqual([{ t: 'upsert', table: 'Settings', row: { key: 'norm', value: 2000 } }]);
   });
   it('status', () => {

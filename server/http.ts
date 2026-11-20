@@ -119,6 +119,7 @@ export const methodNotAllowed = (res: Res, expected: string) =>
   sendError(res, 405, 'method_not_allowed', `${expected} gözlənilir`);
 
 export function fail(res: Res, e: unknown): void {
+  if (e instanceof Error && (e as Error & { status?: number }).status === 413) return sendError(res, 413, 'too_large', e.message);
   console.error(e);
   sendError(res, 500, 'internal', e instanceof Error ? e.message : String(e));
 }

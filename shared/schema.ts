@@ -55,6 +55,10 @@ export type LogEntry = z.infer<typeof LogEntrySchema>;
 export const SettingsSchema = z.object({
   norm: z.number().positive(),
   warn: z.number().min(0).max(1000),
+  /** Təsdiq axını (SPEC §2): 1 = açıq */
+  approval: z.number().min(0).max(1),
+  /** Bu saatdan böyük ötürmələr təsdiq tələb edir */
+  approval_hours: z.number().min(0),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
@@ -105,6 +109,66 @@ export type Op = z.infer<typeof OpSchema>;
 export const OpsBodySchema = z.object({
   ops: z.array(OpSchema).max(MAX_OPS, 'Bir dəfədə çox sayda dəyişiklik'),
 });
+
+/* ---------- ssenarilər (SPEC §6.5) ---------- */
+export const SCENARIO_MAX_OPS = 3000;
+const UpsertOpSchema = z.union([OpSchema.options[0], OpSchema.options[1], OpSchema.options[2]]);
+export const ScenarioChangeSchema = z.object({
+  id: z.string().min(1).max(64),
+  kind: z.enum(['transfer', 'cancel', 'restore', 'hours', 'task_new', 'emp_add', 'emp_remove', 'fte', 'norm', 'automate']),
+  label: text,
+  ops: z.array(UpsertOpSchema).max(SCENARIO_MAX_OPS),
+  auto: z.boolean().optional(),
+});
+const ScenarioId = z.string().regex(/^S-[a-z0-9-]{4,40}$/, 'Yanlış ssenari id');
+const ScenarioName = z.string().trim().min(1, 'Ad boş ola bilməz').max(120);
+const Changes = z
+  .array(ScenarioChangeSchema)
+  .max(1000)
+  .refine((cs) => cs.reduce((n, c) => n + c.ops.length, 0) <= SCENARIO_MAX_OPS, 'Ssenaridə çox sayda dəyişiklik');
+
+export const ScenariosBodySchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('create'),
+    id: ScenarioId,
+    name: ScenarioName,
+    description: text.optional(),
+    base_ts: text.optional(),
+    changes: Changes,
+  }),
+  z.object({
+    action: z.literal('update'),
+    id: ScenarioId,
+    name: ScenarioName.optional(),
+    description: text.optional(),
+    changes: Changes.optional(),
+  }),
+  z.object({ action: z.literal('delete'), id: ScenarioId }),
+  z.object({ action: z.literal('archive'), id: ScenarioId }),
+  z.object({ action: z.literal('restore'), id: ScenarioId }),
+  /** Təsdiqə göndər (editor → admin) */
+  z.object({ action: z.literal('submit'), id: ScenarioId, comment: text.optional() }),
+  /** Admin rədd edir → qaralamaya qayıdır */
+  z.object({ action: z.literal('reject'), id: ScenarioId, comment: text.optional() }),
+  /** Klient ssenarini canlı dataya tətbiq etdi (op-lar /api/ops ilə getdi) → status */
+  z.object({ action: z.literal('applied'), id: ScenarioId, count: z.number().int().min(0).optional() }),
+]);
+export type ScenariosBody = z.infer<typeof ScenariosBodySchema>;
+
+export const NotificationsBodySchema = z.object({
+  ids: z.array(z.string().max(80)).max(200).optional(),
+  all: z.boolean().optional(),
+});
+export type AppNotification = {
+  id: string;
+  to: string;
+  kind: 'approval_request' | 'approved' | 'rejected' | 'applied';
+  text: string;
+  link: string;
+  read: boolean;
+  ts: string;
+  from: string;
+};
 
 /* ---------- auth / users ---------- */
 export const LoginBodySchema = z.object({

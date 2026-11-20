@@ -91,7 +91,7 @@ describe('giriş', () => {
     const r = await api('/api/me');
     expect(r.status).toBe(200);
     expect(r.body.user).toEqual({ name: 'Ecosystem', role: 'admin' });
-    expect(r.body.settings).toEqual({ norm: 1922, warn: 85 });
+    expect(r.body.settings).toEqual({ norm: 1922, warn: 85, approval: 0, approval_hours: 40 });
   });
 });
 
