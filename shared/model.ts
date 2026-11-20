@@ -126,9 +126,10 @@ export function diffOps(prev: Omit<DataState, 'log'>, cur: Omit<DataState, 'log'
   }
   for (const e of prev.employees) if (!cE.has(e.name)) ops.push({ t: 'delete', table: 'Employees', key: e.name, v: e._v ?? 0 });
 
-  for (const k of Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[])
-    if (cur.settings[k] !== prev.settings[k])
-      ops.push({ t: 'upsert', table: 'Settings', row: { key: k, value: cur.settings[k] } });
+  for (const k of Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]) {
+    const v = cur.settings[k];
+    if (v != null && v !== prev.settings[k]) ops.push({ t: 'upsert', table: 'Settings', row: { key: k, value: v } });
+  }
   return ops;
 }
 

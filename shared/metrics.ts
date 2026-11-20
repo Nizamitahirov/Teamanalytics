@@ -88,6 +88,19 @@ export function filterScope(input: Pick<MetricsInput, 'tasks' | 'employees'>, fi
   return { emp, activityOf, scope, active: scope.filter((t) => !t.is_cancelled) };
 }
 
+/** §7.3 Tutum: `N × fte × (capacity_override ?? 1) − məzuniyyət saatları`. Siyahıda olmayan ad → 1 ştat. */
+export function capacityFn(input: Pick<MetricsInput, 'settings' | 'absences'>, year: number) {
+  const N = input.settings.norm;
+  const absenceHours = new Map<string, number>();
+  for (const a of input.absences ?? [])
+    if (a.year == null || a.year === year) absenceHours.set(a.employee, (absenceHours.get(a.employee) ?? 0) + a.hours);
+  return (e: EmployeeExt | undefined) => {
+    const fte = e ? e.fte : 1;
+    const override = e?.capacity_overrides?.[String(year)] ?? 1;
+    return Math.max(0, N * fte * override - (e ? (absenceHours.get(e.name) ?? 0) : 0));
+  };
+}
+
 export function computeMetrics(
   input: MetricsInput,
   { view = 'current', filters = {} }: { view?: View; filters?: Filters } = {},
@@ -97,15 +110,7 @@ export function computeMetrics(
   const year = input.year ?? new Date().getFullYear();
   const { emp, activityOf, scope, active } = filterScope(input, filters);
 
-  // §7.3 Tutum
-  const absenceHours = new Map<string, number>();
-  for (const a of input.absences ?? [])
-    if (a.year == null || a.year === year) absenceHours.set(a.employee, (absenceHours.get(a.employee) ?? 0) + a.hours);
-  const capOf = (e: EmployeeExt | undefined) => {
-    const fte = e ? e.fte : 1;
-    const override = e?.capacity_overrides?.[String(year)] ?? 1;
-    return Math.max(0, N * fte * override - (e ? (absenceHours.get(e.name) ?? 0) : 0));
-  };
+  const capOf = capacityFn(input, year);
 
   // §7.4 Yük — cari icraçı üzrə
   const rows = new Map<string, { hours: number; tasks: number }>();

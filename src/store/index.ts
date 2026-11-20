@@ -23,3 +23,6 @@ export function useData<T>(selector: (s: DataStoreState) => T): T {
 }
 
 export const actions = createActions(dataStore);
+
+import { createScenarioActions } from './scenarioActions';
+export const scenarioActions = createScenarioActions(dataStore, (path, init) => api(path, init));

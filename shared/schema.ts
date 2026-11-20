@@ -2,7 +2,7 @@
 // Mövcud v1 sahələri dəyişmir; v1 klientinin göndərdiyi hər sorğu bu sxemlərdən keçməlidir.
 import { z } from 'zod';
 
-import { MAX_OPS, MAX_TEXT, SETTINGS_KEYS } from './constants.js';
+import { MAX_OPS, MAX_SCENARIO_CHANGES, MAX_TEXT, SETTINGS_KEYS } from './constants.js';
 export * from './constants.js';
 
 /* ---------- əsas obyektlər ---------- */
@@ -49,12 +49,18 @@ export const LogEntrySchema = z.object({
   from: text.optional(),
   to: text.optional(),
   comment: text.optional(),
+  /** Qrup (məs. ssenari id-si) — toplu əməliyyatın qeydləri bir başlıq altında (SPEC §6.5, §6.9) */
+  group: text.optional(),
 });
 export type LogEntry = z.infer<typeof LogEntrySchema>;
 
 export const SettingsSchema = z.object({
   norm: z.number().positive(),
   warn: z.number().min(0).max(1000),
+  /** Təsdiq axını: 0 söndürülü, 1 açıq (SPEC §2) */
+  approval: z.number().min(0).max(1).optional(),
+  /** Bu saatdan (≥) böyük ötürmə təsdiqə gedir */
+  approval_hours: z.number().min(0).optional(),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
@@ -137,6 +143,123 @@ export type UserRow = {
   locked_until: string | null;
   must_change_password: boolean;
 };
+
+/* ---------- ssenarilər (SPEC §6.5) ---------- */
+export const SCENARIO_STATUSES = ['draft', 'pending', 'applied', 'archived'] as const;
+export const ScenarioStatusSchema = z.enum(SCENARIO_STATUSES);
+export type ScenarioStatus = z.infer<typeof ScenarioStatusSchema>;
+
+export const CHANGE_KINDS = [
+  'transfer',
+  'cancel',
+  'restore',
+  'hours',
+  'new_task',
+  'add_employee',
+  'remove_employee',
+  'fte',
+  'norm',
+  'automate',
+  'rebalance',
+] as const;
+export const ChangeKindSchema = z.enum(CHANGE_KINDS);
+export type ChangeKind = z.infer<typeof ChangeKindSchema>;
+
+/** Ssenari daxilində bir dəyişiklik: insan üçün etiket + `Op[]` (baza datası üzərinə lokal tətbiq olunur). */
+export const ScenarioChangeSchema = z.object({
+  id: z.string().min(1).max(64),
+  kind: ChangeKindSchema,
+  label: text,
+  ops: z.array(OpSchema).max(MAX_OPS),
+});
+export type ScenarioChange = z.infer<typeof ScenarioChangeSchema>;
+
+const ScenarioId = z.string().regex(/^S-[a-z0-9-]{4,40}$/, 'Yanlış ssenari id-si');
+const ScenarioName = z.string().trim().min(1, 'Ad boş ola bilməz').max(120);
+const Changes = z.array(ScenarioChangeSchema).max(MAX_SCENARIO_CHANGES, 'Ssenaridə çox sayda dəyişiklik');
+/** Ssenari təsirinin xülasəsi (siyahıda göstərilir — hər dəfə hesablamamaq üçün) */
+export const ScenarioSummarySchema = z.object({
+  changes: z.number().int().min(0),
+  dFteNeed: z.number().finite(),
+  dOver: z.number().int(),
+  dHours: z.number().finite(),
+});
+export type ScenarioSummary = z.infer<typeof ScenarioSummarySchema>;
+
+/** POST /api/scenarios (SPEC §4.4) */
+export const ScenariosBodySchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('create'),
+    id: ScenarioId,
+    name: ScenarioName,
+    description: text.optional(),
+    base_ts: text.optional(),
+    changes: Changes,
+    summary: ScenarioSummarySchema.optional(),
+    /** Yaradılan kimi təsdiqə göndər (məs. 40+ saatlıq ötürmə) */
+    submit: z.boolean().optional(),
+  }),
+  z.object({
+    action: z.literal('update'),
+    id: ScenarioId,
+    name: ScenarioName.optional(),
+    description: text.optional(),
+    changes: Changes.optional(),
+    summary: ScenarioSummarySchema.optional(),
+  }),
+  z.object({ action: z.literal('delete'), id: ScenarioId }),
+  z.object({ action: z.literal('submit'), id: ScenarioId }),
+  z.object({ action: z.literal('reject'), id: ScenarioId, comment: text.optional() }),
+  z.object({ action: z.literal('archive'), id: ScenarioId }),
+  z.object({ action: z.literal('restore'), id: ScenarioId }),
+  /** Klient ssenarinin op-larını /api/ops ilə yazdıqdan sonra statusu qeyd edir (+ geri alma op-ları) */
+  z.object({ action: z.literal('applied'), id: ScenarioId, revert: z.array(OpSchema).max(MAX_OPS) }),
+  z.object({ action: z.literal('reverted'), id: ScenarioId }),
+]);
+export type ScenariosBody = z.infer<typeof ScenariosBodySchema>;
+
+/** Ssenari (klientə gedən forma; Firestore-da `changes`, `summary`, `revert` JSON sətri kimi saxlanır). */
+export type Scenario = {
+  id: string;
+  name: string;
+  description: string;
+  base_ts: string;
+  status: ScenarioStatus;
+  changes: ScenarioChange[];
+  summary: ScenarioSummary | null;
+  created_by: string;
+  created_at: string;
+  updated_by: string;
+  updated_at: string;
+  submitted_by: string;
+  submitted_at: string;
+  decided_by: string;
+  decided_at: string;
+  decision_comment: string;
+  applied_by: string;
+  applied_at: string;
+  reverted_by: string;
+  reverted_at: string;
+  /** Tətbiqdən əvvəlki dəyərlər — "Geri al" bu op-ları yazır */
+  revert: Op[];
+};
+
+/* ---------- bildirişlər (SPEC §2 təsdiq axını) ---------- */
+export const NOTIFICATION_KINDS = ['approval_request', 'approved', 'rejected'] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+export type Notification = {
+  id: string;
+  to: string;
+  kind: NotificationKind;
+  text: string;
+  link: string;
+  read: boolean;
+  ts: string;
+};
+export const NotificationsBodySchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('read'), ids: z.array(z.string().min(1).max(80)).min(1).max(200) }),
+  z.object({ action: z.literal('read-all') }),
+]);
 
 /* ---------- API cavabları ---------- */
 export type ApiError = { error: string; code: string };

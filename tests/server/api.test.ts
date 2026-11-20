@@ -14,7 +14,7 @@ beforeAll(async () => {
   fsMock = await startMockFirestore();
   Object.assign(process.env, mockEnv(fsMock.url));
   delete process.env.AUTH_SECRET;
-  const names = ['login', 'logout', 'me', 'data', 'ops', 'log', 'users', 'health'];
+  const names = ['login', 'logout', 'me', 'data', 'ops', 'log', 'users', 'health', 'scenarios', 'notifications'];
   const handlers = Object.fromEntries(
     await Promise.all(names.map(async (n) => [n, (await import(`../../api/${n}.ts`)).default as Handler])),
   );
@@ -91,7 +91,7 @@ describe('giriş', () => {
     const r = await api('/api/me');
     expect(r.status).toBe(200);
     expect(r.body.user).toEqual({ name: 'Ecosystem', role: 'admin' });
-    expect(r.body.settings).toEqual({ norm: 1922, warn: 85 });
+    expect(r.body.settings).toEqual({ norm: 1922, warn: 85, approval: 0, approval_hours: 40 });
   });
 });
 

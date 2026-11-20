@@ -70,6 +70,21 @@ describe('RBAC matrisi (server)', () => {
       { json: { action: 'add', name: 'X', password: 'Cox-Gizli-Soz-77' } },
       { admin: 200, editor: 403, viewer: 403 },
     ],
+    // Mərhələ 6: ssenarilər (viewer oxuyur), rədd etmək yalnız admin, bildirişlər hər kəs (yalnız öz)
+    ['GET /api/scenarios', '/api/scenarios', {}, { admin: 200, editor: 200, viewer: 200 }],
+    [
+      'POST /api/scenarios reject',
+      '/api/scenarios',
+      { json: { action: 'reject', id: 'S-yoxdur-1' } },
+      { admin: 404, editor: 403, viewer: 403 },
+    ],
+    [
+      'POST /api/scenarios archive',
+      '/api/scenarios',
+      { json: { action: 'archive', id: 'S-yoxdur-1' } },
+      { admin: 404, editor: 404, viewer: 403 },
+    ],
+    ['POST /api/notifications', '/api/notifications', { json: { action: 'read-all' } }, { admin: 200, editor: 200, viewer: 200 }],
   ];
   for (const [label, path, init, expected] of cases)
     for (const role of ['admin', 'editor', 'viewer'] as const)

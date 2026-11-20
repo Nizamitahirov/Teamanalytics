@@ -6,7 +6,9 @@ import { EmployeePicker } from '../../components/EmployeePicker';
 import { LoadChip } from '../../components/Badges';
 import { useI18n } from '../../lib/i18n';
 import { toast } from '../../lib/toast';
-import { actions, dataStore, useData } from '../../store';
+import { actions, dataStore, scenarioActions, useData } from '../../store';
+import { useCan } from '../../app/useCan';
+import { makeChange, transferIn } from '../../../shared/scenario';
 import { useMetrics } from '../../hooks/useMetrics';
 import { curOwner, taskLabel } from '../../../shared/model';
 import { levelOf } from '../../../shared/metrics';
@@ -39,8 +41,26 @@ export function TransferDialog({ ids, onClose, onDone }: { ids: string[]; onClos
   const after = before + incoming;
   const ratio = (h: number, c: number) => (c > 0 ? h / c : h > 0 ? Infinity : 0);
 
+  const { isAdmin } = useCan();
+  // Təsdiq axını (SPEC §2): editor-un böyük ötürməsi birbaşa yazılmır — ssenari kimi təsdiqə gedir
+  const needsApproval = settings.approval === 1 && !isAdmin && moveH >= (settings.approval_hours ?? 40);
+  const submitForApproval = async () => {
+    const live = scenarioActions.live();
+    const label = t('chg.l.transfer', { n: list.length, to: to.trim() });
+    const change = makeChange('transfer', label, live, transferIn(live, ids, to.trim()));
+    if (!change) return;
+    try {
+      await scenarioActions.create(label, [change], { description: comment.trim(), submit: true });
+      onClose();
+      onDone?.();
+      toast(t('transfer.sentForApproval'));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), { kind: 'error' });
+    }
+  };
   const submit = () => {
     if (!to) return;
+    if (needsApproval) return void submitForApproval();
     const n = actions.transferTasks(ids, to, comment.trim());
     onClose();
     onDone?.();
@@ -56,7 +76,7 @@ export function TransferDialog({ ids, onClose, onDone }: { ids: string[]; onClos
         <>
           <Button onClick={onClose}>{t('common.cancel')}</Button>
           <Button variant="primary" onClick={submit} disabled={!to}>
-            <ArrowRightLeft size={16} aria-hidden="true" /> {t('transfer.submit')}
+            <ArrowRightLeft size={16} aria-hidden="true" /> {needsApproval ? t('transfer.submitApproval') : t('transfer.submit')}
           </Button>
         </>
       }
@@ -91,6 +111,11 @@ export function TransferDialog({ ids, onClose, onDone }: { ids: string[]; onClos
           />
         </div>
       </div>
+      {needsApproval && (
+        <p className={s.muted} role="note">
+          {t('transfer.approvalNote', { h: fmtHours(settings.approval_hours ?? 40) })}
+        </p>
+      )}
       <div className={s.impact} aria-live="polite">
         {!to ? (
           <span className={s.muted}>{t('transfer.pick')}</span>

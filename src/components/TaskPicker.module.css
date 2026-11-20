@@ -1,0 +1,70 @@
+.search {
+  position: relative;
+}
+.search svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: var(--muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.search input {
+  padding-left: 36px;
+}
+.list {
+  max-height: 260px;
+  margin: var(--sp-2) 0 0;
+  padding: var(--sp-1);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  list-style: none;
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.item:hover {
+  background: var(--hover);
+}
+.item input {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand);
+}
+.text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.text b,
+.text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.text b {
+  font-weight: 600;
+  font-size: var(--fs-14);
+}
+.text small {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+.hours {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-13);
+}
+.more {
+  padding: var(--sp-2);
+  color: var(--muted);
+  font-size: var(--fs-13);
+}

@@ -94,9 +94,18 @@ function General() {
   const settings = useData((st) => st.data.settings);
   const [norm, setNorm] = useState(String(settings.norm));
   const [warn, setWarn] = useState(String(settings.warn));
+  const [approval, setApproval] = useState(settings.approval === 1);
+  const [approvalHours, setApprovalHours] = useState(String(settings.approval_hours ?? 40));
   const n = Number(norm.replace(',', '.'));
   const w = Number(warn.replace(',', '.'));
-  const valid = Number.isFinite(n) && n >= 100 && n <= 4000 && Number.isFinite(w) && w >= 50 && w <= 100;
+  const ah = Number(approvalHours.replace(',', '.'));
+  const valid =
+    Number.isFinite(n) && n >= 100 && n <= 4000 && Number.isFinite(w) && w >= 50 && w <= 100 && Number.isFinite(ah) && ah >= 0;
+  const dirty =
+    n !== settings.norm ||
+    w !== settings.warn ||
+    Number(approval) !== (settings.approval ?? 0) ||
+    ah !== (settings.approval_hours ?? 40);
   const save = () => {
     if (!valid) return;
     dataStore.getState().commit(
@@ -104,8 +113,15 @@ function General() {
       (d) => {
         d.settings.norm = n;
         d.settings.warn = w;
+        d.settings.approval = approval ? 1 : 0;
+        d.settings.approval_hours = ah;
       },
-      [{ action: 'Ayarlar', task_label: `Norma ${formatNumber(n)} saat, yüksək yük həddi ${w}%` }],
+      [
+        {
+          action: 'Ayarlar',
+          task_label: `Norma ${formatNumber(n)} saat, yüksək yük həddi ${w}%, təsdiq axını ${approval ? `açıq (${formatNumber(ah)}+ saat)` : 'söndürülü'}`,
+        },
+      ],
     );
     toast(t('set.saved'), { action: { label: t('top.undo'), fn: () => dataStore.getState().undoLast() } });
   };
@@ -141,9 +157,31 @@ function General() {
           />
           <span className={f.hint}>{t('set.warnHint')}</span>
         </div>
+        <div className={`${f.field} ${f.full}`}>
+          <label className={f.check}>
+            <input type="checkbox" checked={approval} onChange={(e) => setApproval(e.target.checked)} disabled={!isAdmin} />
+            {t('set.approval')}
+          </label>
+          <span className={f.hint}>{t('set.approvalHint')}</span>
+        </div>
+        {approval && (
+          <div className={f.field}>
+            <label className={f.label} htmlFor="set-approval-hours">
+              {t('set.approvalHours')}
+            </label>
+            <input
+              id="set-approval-hours"
+              className={f.input}
+              inputMode="decimal"
+              value={approvalHours}
+              onChange={(e) => setApprovalHours(e.target.value)}
+              disabled={!isAdmin}
+            />
+          </div>
+        )}
         {isAdmin && (
           <div className={f.full}>
-            <Button variant="primary" onClick={save} disabled={!valid || (n === settings.norm && w === settings.warn)}>
+            <Button variant="primary" onClick={save} disabled={!valid || !dirty}>
               {t('common.save')}
             </Button>
             {!valid && <span className={f.error}> {t('set.invalid')}</span>}

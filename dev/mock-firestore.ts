@@ -1,5 +1,5 @@
 // Firestore REST API-nin yaddaşda təqlidi — lokal dev server və server testləri üçün.
-// Dəstəklənir: :commit (update/updateMask/updateTransforms/delete), :runQuery (_ts filtri, sıralama, limit),
+// Dəstəklənir: :commit (update/updateMask/updateTransforms/delete), :runQuery (_ts filtri, EQUAL filtri, sıralama, limit),
 // sənəd GET, kolleksiya siyahısı (pageSize). Real Firebase-ə toxunmur.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -122,8 +122,17 @@ export async function startMockFirestore({ port = 0, latencyMs = 0 } = {}): Prom
       const coll = q.from[0].collectionId;
       let list = [...docs.keys()].filter((n) => short(n).split('/')[0] === coll).map(docOut);
       if (q.where) {
-        const since = q.where.fieldFilter.value.timestampValue;
-        list = list.filter((d) => tsOf(d.fields?._ts) > since);
+        const ff = q.where.fieldFilter;
+        if (ff.op === 'EQUAL') {
+          const want = JSON.stringify(Object.values(ff.value)[0]);
+          list = list.filter((d) => {
+            const v = d.fields?.[ff.field.fieldPath];
+            return v !== undefined && JSON.stringify(Object.values(v)[0]) === want;
+          });
+        } else {
+          const since = ff.value.timestampValue;
+          list = list.filter((d) => tsOf(d.fields?._ts) > since);
+        }
       }
       if (q.orderBy) {
         const desc = q.orderBy[0].direction === 'DESCENDING';

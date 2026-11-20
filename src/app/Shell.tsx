@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
-  Bell,
   Eye,
   LogOut,
   Monitor,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { BrandMark } from '../components/BrandMark';
 import { IconButton } from '../components/Button';
+import { NotificationsButton } from '../features/notifications/NotificationsButton';
 import { useI18n } from '../lib/i18n';
 import { storage } from '../lib/storage';
 import { useTheme } from '../lib/theme';
@@ -98,7 +98,6 @@ export function Shell({ me }: { me: MeResponse }) {
   };
 
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor;
-  const soon = t('top.soon');
   const initial = me.user.name.charAt(0).toUpperCase();
 
   const link = (n: (typeof NAV)[number]) => (
@@ -196,9 +195,7 @@ export function Shell({ me }: { me: MeResponse }) {
                 </IconButton>
               </>
             )}
-            <IconButton label={`${t('top.notifications')} — ${soon}`} aria-disabled="true">
-              <Bell size={18} aria-hidden="true" />
-            </IconButton>
+            <NotificationsButton />
             <IconButton label={`${t('top.theme')}: ${t(`theme.${theme}`)}`} onClick={cycle}>
               <ThemeIcon size={18} aria-hidden="true" />
             </IconButton>
