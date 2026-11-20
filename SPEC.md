@@ -513,7 +513,7 @@ Hər mərhələ: branch, PR, CI yaşıl, QM-lər yoxlanıb, sahibə ekran şəki
 | 7 | **Optimizasiya + Data sağlamlığı** ✅ (ADR-007) | §6.6, §6.8 | Seed tapıntıları aşkarlanır |
 | 8 | **Hesabatlar + Excel v2** ✅ (ADR-009) | §6.7, §9 | PDF 2–4 səhifə, import diff önizləmə |
 | 9 | **Əməliyyat** ✅ (ADR-011) | Cron (snapshot, backup, təmizlik), trend vidjetləri, health v2, xəta izləmə, PWA | Cron lokal testdə; backup→bərpa e2e |
-| 10 | **Keçid** — v2 canlıda əsas sayt, v1 `/legacy/` (ADR-010); qalan: Lighthouse, v1-in silinməsi | Miqrasiya skripti, v1 → v2 keçidi, `legacy/`, README/CLAUDE.md yeniləmə, sahibə təlimat | Canlıda qızıl rəqəmlər eyni; Lighthouse hədəfləri |
+| 10 | **Keçid** ✅ (ADR-010, ADR-012) — qalan yalnız: 2026-11-27-dən sonra `/legacy/`-in silinməsi | Miqrasiya skripti, v1 → v2 keçidi, `legacy/`, README/CLAUDE.md yeniləmə, sahibə təlimat | Canlıda qızıl rəqəmlər eyni; Lighthouse hədəfləri |
 
 ---
 

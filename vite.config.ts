@@ -4,8 +4,9 @@ import react from '@vitejs/plugin-react';
 // v2 klienti (SPEC §4) — canlıda kökdə (/) işləyir (keçid, ADR-010). v1 `public/` Vite-in publicDir-i DEYİL:
 // Vercel build-i (`npm run build:vercel`) v2-ni dist/-ə yığır, v1-i dəyişmədən dist/legacy/-ə köçürür (ehtiyat).
 // CSP (SPEC §10) — v2 build-inə meta teq kimi. Dev serverə tətbiq olunmur (Vite HMR inline skript istifadə edir).
-// Canlıda v1 (public/login.html inline skript) hələ işlədiyi üçün HTTP başlığı kimi CSP Mərhələ 10-da (keçid) əlavə olunacaq.
-const CSP = [
+// Eyni siyasət + frame-ancestors HTTP başlığı kimi vercel.json-da (yalnız v2 yolları; /legacy/ inline skript işlədir).
+// İkisi sinxron saxlanılır: tests/unit/csp.test.ts.
+export const CSP = [
   "default-src 'self'",
   "script-src 'self' https://cdn.sheetjs.com",
   "style-src 'self' 'unsafe-inline'",

@@ -162,7 +162,7 @@ Qadağalar:
 - **Parol:** PBKDF2-SHA256, 100 000 iterasiya; siyasət ≥ 10 simvol + 1000 yayılmış parol + ad. `Ecosystem` yalnız heş kimi kodda (`BOOTSTRAP`); ilkin parolla giriş → `mustChange` (v2 klienti məcbur edir; server keçid dövründə məcbur etmir — v1 sınmasın).
 - **Kilid:** 5 yanlış cəhd → 15 dəq (Firestore, 423 + vaxt); IP limiti əlavə qat. Yanlış ad/parol eyni cavab.
 - **CSRF:** POST-larda `Sec-Fetch-Site`/`Origin` yoxlanır. **Limit:** 300 sorğu/dəq/istifadəçi. **Audit:** jurnalda `ip_hash`.
-- **Başlıqlar:** HSTS, Permissions-Policy, X-Frame-Options, nosniff, Referrer-Policy (vercel.json). Ciddi CSP yalnız v2 build-ində (meta) — v1 `login.html` inline skript işlədir.
+- **Başlıqlar:** HSTS, Permissions-Policy, X-Frame-Options, nosniff, Referrer-Policy (vercel.json). Ciddi CSP: v2 build-ində meta + `vercel.json` HTTP başlığı (`frame-ancestors 'none'`), `/legacy/` xaric (inline skript); ikisi `tests/unit/csp.test.ts` ilə sinxron.
 - v1-də bütün HTML render `esc()`-dən keçir; v2-də React escaping (heç vaxt `dangerouslySetInnerHTML`).
 - Repo public-dir: sirr, şəxsi məlumat, real parol commit etmə.
 

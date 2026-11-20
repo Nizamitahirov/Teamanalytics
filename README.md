@@ -1,28 +1,60 @@
 # Workforce Planning — Əmək Münasibətləri
 
-Şöbənin proseslərini, tapşırıqlarını və iş yükünü idarə etmək üçün veb platforma. Vercel-də işləyir, məlumatlar Firebase Firestore-da saxlanır, giriş ad və parolla olur.
+Şöbənin bütün təkrarlanan işlərini (kim edir, ildə neçə dəfə, neçə saat) bir yerdə saxlayan, yükü normaya görə izləyən və rəhbərliyə hesabat hazırlayan veb platforma.
 
-## İmkanlar
+- **Sayt:** https://teamanalytics.vercel.app (yeni versiya, v2)
+- **Köhnə versiya (ehtiyat):** https://teamanalytics.vercel.app/legacy/ — eyni məlumatlar, eyni giriş
+- Telefonda və ya kompüterdə "Ana ekrana əlavə et" ilə tətbiq kimi quraşdırmaq olar; internet olmadıqda son yüklənmiş məlumat görünür.
 
-- **Panel**: illik iş həcmi, lazım olan və mövcud ştat (norma 1922 saat), ehtiyat/çatışmazlıq, normanı aşanlar, ləğvdən qənaət, optimizasiya potensialı. Əməkdaşların yük qrafiki, ötürmələrdən əvvəl/indi müqayisəsi, şirkət / fəaliyyət forması / status bölgüsü, proses və kateqoriya üzrə saatlar, ştat cədvəli.
-- **Əməkdaşlar**: yük kartları. Tapşırıqları ötürmək (qəbul edənin yükü əvvəlcədən göstərilir), ləğv, bərpa, "Hamısını ötür". Profil: şirkət, fəaliyyət forması, ştat (0.5 və s.), qrup. Adları birləşdirmək (məs. "Kamilə" → "Kamila").
-- **Tapşırıqlar**: axtarış, filtrlər, sıralama, toplu ötürmə / ləğv / bərpa / silmə.
-- **Jurnal**: hər əməliyyat — kim, nə vaxt, kimdən → kimə, şərh.
-- **Geri al** (son 30 əməliyyat, Ctrl+Z), **Excel export** (4 vərəq) və **import** (yenilə / əvəz et).
-- **İstifadəçilər**: Ayarlar bölməsindən əlavə etmək, parol dəyişmək, silmək. Jurnalda hər əməliyyatı kimin etdiyi görünür.
+## Bölmələr
 
-## Necə sürətli işləyir
+| Bölmə | Nə üçün |
+|---|---|
+| **Panel** | İş həcmi, lazım olan / mövcud ştat, ehtiyat, normanı aşanlar, qrafiklər (yük, ötürmə axını, proseslər, ləğv və optimizasiya), ştat cədvəli, **trend** (gündəlik), data sağlamlığı xəbərdarlığı |
+| **Əməkdaşlar** | Yük kartları, profil, ötürmə, "Hamısını ötür", "Yükü balansla" |
+| **Tapşırıqlar** | Cədvəl, axtarış (ə/e fərqi yoxdur), filtrlər, toplu ötürmə / ləğv / bərpa, sətirdə redaktə |
+| **Ssenarilər** | "Nə olardı?" — canlı dataya toxunmadan dəyişiklikləri sınamaq (əməkdaş ayrılır, yeni əməkdaş, avtomatlaşdırma, normanı dəyiş, yükü balansla), cari ilə müqayisə, bir düymə ilə tətbiq və geri alma |
+| **Optimizasiya** | Namizəd → İcrada → Tamamlandı lövhəsi, potensial və realizə olunmuş qənaət, rüblər üzrə plan/fakt |
+| **Hesabatlar** | Rəhbərlik hesabatı (PDF, 4 səhifə), əməkdaş kartı, proses, jurnal, dövr müqayisəsi; Excel/CSV export, Excel import (önizləmə ilə) |
+| **Data sağlamlığı** | Ad dublikatları, təkrar tapşırıqlar, saat uyğunsuzluğu, ID problemləri — düzəltmə düymələri ilə |
+| **Jurnal** | Hər əməliyyat: kim, nə vaxt, nə dəyişdi |
+| **Ayarlar** | Parol, norma və məzuniyyət, təsdiq axını, istifadəçilər, **Data** (backup / bərpa), **Texniki xidmət** |
 
-- Dəyişiklik ekranda **dərhal** görünür, bazaya arxa planda yazılır (yan paneldə "Saxlanır… / Sinxron").
-- Hər 10 saniyədə yalnız **bir kiçik sorğu** gedir: "son dəyişiklikdən sonra nə dəyişib?". Dəyişiklik yoxdursa, heç nə yüklənmir. Varsa, yalnız dəyişən tapşırıqlar gəlir.
-- Brauzer son nüsxəni yadda saxlayır: səhifə dərhal açılır, sonra yalnız fərq yüklənir.
-- Firestore-un pulsuz limiti (gündə 50 000 oxuma, 20 000 yazma) bu həcm üçün kifayətdir.
+Hər dəyişiklik ekranda dərhal görünür, arxa planda bazaya yazılır; **Geri al** (Ctrl+Z) son 30 addımı qaytarır. Eyni anda iki nəfər eyni işi dəyişərsə, hansı versiyanın qalacağını soruşur.
 
----
+## Rollar
 
-## Quraşdırma
+- **Administrator** — hər şey: istifadəçilər, ayarlar, data sağlamlığı düzəlişləri, backup-dan bərpa, təsdiq.
+- **Redaktor** — tapşırıq və əməkdaşlarla işləmək, ötürmə, ssenarilər (təsdiq axını açıqdırsa — təsdiqə göndərir).
+- **Baxış** — yalnız oxuma və hesabatlar (rəhbərlik üçün).
 
-Vercel-də **yalnız bir** mühit dəyişəni lazımdır:
+Yeni istifadəçi: **Ayarlar → İstifadəçilər → İstifadəçi əlavə et** (müvəqqəti parol; ilk girişdə öz parolunu təyin edir).
+
+## Hesablama qaydaları
+
+- **Effektiv norma** = illik norma − məzuniyyət: **1922 − 30 gün × 8 saat = 1682 saat / 1 ştat** (Ayarlar → Ümumi-dən dəyişir; Paneldə izahı yazılır).
+- **Yük** = əməkdaşın aktiv işlərinin illik saatı ÷ (effektiv norma × ştat). 100%-dən çox — norma aşılır (qırmızı), 85%-dən çox — yüksək (sarı).
+- **Lazım olan ştat** = bütün aktiv işlərin saatı ÷ effektiv norma. **Mövcud ştat** = aktiv işi olan əməkdaşların ştatlarının cəmi. **Ehtiyat** = mövcud − lazım.
+- **Cari icraçı** = yeni icraçı, boşdursa ilkin icraçı. **Status**: Ləğv · Transfer · Yeni · Mövcud.
+- **Ləğv** silmək deyil — saatı "Ləğvdən qənaət"ə düşür, istənilən vaxt bərpa olunur.
+- "Şöbə əməkdaşları" **qrup**dur: saatı cəmə daxildir, fərdi yükə və mövcud ştata düşmür.
+
+## Backup və bərpa
+
+- Hər gün (Bakı vaxtı ~23:50) **avtomatik backup** və Panel rəqəmlərinin surəti (trend üçün) saxlanılır; backup-lar 30 gün qalır.
+- **Ayarlar → Data**: backup siyahısı, "İndi backup et", **Önizlə və bərpa et** (nəyin dəyişəcəyini göstərir, iki dəfə təsdiq istəyir, əvvəlcə cari vəziyyətin backup-ını alır; bərpa da "Geri al" ilə qaytarılır).
+- Excel ilə əlavə nüsxə: **Hesabatlar → Excel**.
+
+## Problem olduqda
+
+1. Brauzerdə açın: https://teamanalytics.vercel.app/api/health — `firestore: "ok"` olmalıdır; `commit` son yeniləmənin kodunu göstərir.
+2. Yeni versiyada problem varsa, işi **köhnə versiyada** davam etdirin: https://teamanalytics.vercel.app/legacy/
+3. **Əvvəlki versiyaya qayıtmaq (1 dəqiqə):** vercel.com → layihə **teamanalytics** → **Deployments** → əvvəlki (yaşıl "Ready") deploy-un yanındakı **⋯** → **Promote** → təsdiqlə. Məlumatlara təsir etmir.
+4. Səhv dəyişiklik edilibsə: **Geri al**, ya da **Ayarlar → Data**-dan dünənki backup-a qayıdın.
+
+## Quraşdırma (Vercel)
+
+Vercel-də **bir məcburi** mühit dəyişəni lazımdır:
 
 | Ad | Dəyər |
 |---|---|
@@ -41,32 +73,29 @@ Qalanı avtomatikdir:
 
 ---
 
-## Claude Code ilə davam etmək üçün
 
-- `CLAUDE.md` — layihənin işçi təlimatı (arxitektura, məlumat modeli, biznes qaydaları, sinxron axını, əmrlər, qaydalar).
-- `docs/CONTEXT.md` — tarixçə, qərarların səbəbləri, datanın mənşəyi və keyfiyyət problemləri.
-- `SPEC.md` — v2 spesifikasiyası (növbəti böyük iş: React + TypeScript, ECharts paneli, ssenarilər, rollar, hesabatlar).
-- Lokal işləmək: `npm run dev` (v1 + mock Firestore, `Ecosystem / Ecosystem`), `npm run dev:v2` (v2 önizləmə). Testlər: `npm test`, `npm run e2e`, `npm run e2e:v1`.
+**Tövsiyə olunan (istəyə bağlı) — `CRON_SECRET`:** gündəlik backup-ı yalnız Vercel-in özü işlədə bilsin deyə.
+1. vercel.com → **teamanalytics** → **Settings** → **Environment Variables**.
+2. **Key:** `CRON_SECRET`, **Value:** istənilən uzun söz (məs. 30+ hərf və rəqəm, heç kimə göndərməyin), **Environments:** Production → **Save**.
+3. **Deployments** → sonuncu deploy → **⋯** → **Redeploy**.
+4. Yoxlama: Ayarlar → Texniki xidmət-də `CRON_SECRET: var`.
 
-## Fayllar
+---
+
+## Proqramçılar üçün
+
+- `CLAUDE.md` — işçi təlimat (arxitektura, məlumat modeli, biznes qaydaları, sinxron axını, əmrlər). `SPEC.md` — v2 spesifikasiyası. `docs/ADR-*.md` — qərarlar, `docs/CONTEXT.md` — tarixçə.
+- Lokal: `npm run dev` (API + mock Firestore + köhnə klient, http://localhost:8765) və `npm run dev:v2` (yeni klient, http://localhost:5173). Giriş: `Ecosystem / Ecosystem`.
+- Yoxlama: `npm run ci` (typecheck, lint, format, testlər, build), `npm run e2e`, `npm run e2e:v1`.
+- Deploy: `main`-ə push → Vercel `npm run build:vercel` (v2 → `dist/`, köhnə klient → `dist/legacy/`).
 
 ```
-public/            v1 səhifələri (index.html, login.html, app.js, styles.css) — hazırda canlıda olan
-api/               Server funksiyaları (TypeScript): login, logout, me, data, ops, log, users, health
-server/            Firestore REST, giriş/sessiya, HTTP köməkçiləri
-shared/            Məlumat sxemləri (Zod), mətnlər (az/en)
-src/               v2 klienti (React + Vite) — hazırlanır, hələ yayımlanmır
-dev/               Lokal mock server və e2e testlər
-tests/             Qızıl rəqəmlər, server və unit testlər
+src/               v2 klienti (React + Vite) — canlıda
+public/            v1 klienti — canlıda /legacy/ (ehtiyat)
+api/               Server funksiyaları (TypeScript, 12)
+server/            Firestore REST, giriş/sessiya, ssenarilər, gündəlik iş
+shared/            Hesablamalar (metrics — tək mənbə), sxemlər, mətnlər (az/en)
+dev/  tests/       Mock server, e2e və unit testlər, qızıl rəqəmlər
 docs/              Kontekst və qərarlar (ADR)
 data/seed.json     İlkin məlumatlar (Birbank 266 + Pashapay 75) — ictimai deyil
 ```
-
-## Hesablama qaydaları
-
-- **Cari icraçı** = yeni icraçı, boşdursa ilkin icraçı.
-- **Status**: Ləğv · Transfer (ilkin və yeni icraçı fərqlidir) · Yeni (ilkin icraçı yoxdur) · Mövcud.
-- **Yük** = aktiv tapşırıqların illik saatı ÷ (norma × ştat). Ləğv edilmiş işlər daxil deyil.
-- **Lazım olan ştat** = aktiv illik saat ÷ norma. **Mövcud ştat** = tapşırığı olan fərdi əməkdaşların ştatlarının cəmi.
-- **Fəaliyyət forması** əməkdaşın profilindən gəlir. Başlanğıcda Ağaəli, Aygül, İqrar, Aysel → *Project and AdHoc based*, qalanlar → *Administrativ*.
-- "Şöbə əməkdaşları" **qrup**dur: saatları cəmə daxildir, fərdi yükə və mövcud ştata düşmür.
