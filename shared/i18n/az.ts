@@ -124,6 +124,7 @@ export const az = {
   'kpi.need': 'Lazım olan ştat',
   'kpi.needFoot': '{h} ÷ {norm} saat (effektiv norma)',
   'kpi.have': 'Mövcud ştat',
+  'kpi.utilization': 'Ştatın istifadəsi (lazım olan ÷ mövcud)',
   'kpi.haveFoot': '{n} nəfər tapşırıq icra edir',
   'kpi.reserve': 'Ehtiyat tutum',
   'kpi.shortage': 'Ştat çatışmazlığı',

@@ -76,9 +76,13 @@ describe('qrafik option-ları', () => {
     expect(light.waterfall.table.rows.map((r) => r[1])).toEqual(['28 782', '− 933', '− 0', '27 850', '− 55', '27 795']);
   });
 
-  it('yük qrafiki: normanı aşanlar naxışla (rəng tək daşıyıcı deyil)', () => {
-    const data = (light.load.option.series as { data: { itemStyle: { decal?: unknown } }[] }[])[0].data;
-    expect(data.filter((d) => d.itemStyle.decal).length).toBeGreaterThanOrEqual(3);
+  it('yük qrafiki: normanı aşanlar mətn işarəsi ilə (▲ — rəng tək daşıyıcı deyil)', () => {
+    const ser = (
+      light.load.option.series as { data: unknown[]; label: { formatter: (p: { dataIndex: number }) => string } }[]
+    )[0];
+    const labels = ser.data.map((_, i) => ser.label.formatter({ dataIndex: i }));
+    expect(labels.filter((l) => l.endsWith('▲')).length).toBe(m.over.length);
+    expect(labels.some((l) => l.endsWith('△'))).toBe(true);
   });
 
   it('Sankey: sol və sağ düyünlər ayrılır, axınların cəmi transfer saatıdır', () => {

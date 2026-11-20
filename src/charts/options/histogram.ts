@@ -49,10 +49,10 @@ export function histogramOption(h: ReturnType<typeof loadHistogram>, th: ChartTh
       series: [
         {
           type: 'bar',
-          barCategoryGap: '12%',
+          barCategoryGap: '22%',
           data: h.bins.map((b) => ({
             value: b.names.length,
-            itemStyle: { color: b.from >= 1 - 1e-9 ? th.critical : th.cat[0], borderRadius: [4, 4, 0, 0] },
+            itemStyle: { color: b.from >= 1 - 1e-9 ? th.critical : th.cat[0], borderRadius: [5, 5, 0, 0] },
           })),
           label: {
             show: true,

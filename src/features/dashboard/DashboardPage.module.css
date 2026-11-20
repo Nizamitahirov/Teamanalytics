@@ -25,75 +25,101 @@
 .seg button[aria-pressed='true'] {
   background: var(--ink);
   color: #fff;
+  box-shadow: var(--shadow-1);
+}
+.seg button:hover:not([aria-pressed='true']) {
+  background: var(--hover);
+  color: var(--text);
 }
 .hero {
   position: relative;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--sp-4);
-  padding: var(--sp-6);
   overflow: hidden;
-  border-radius: var(--r-xl);
-  background: var(--grad);
-  color: #fff;
-  box-shadow: var(--shadow-brand);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
 }
-.hero::after {
+/* Brend vurğusu: yalnız nazik üst zolaq */
+.hero::before {
   content: '';
   position: absolute;
-  right: -120px;
-  top: -160px;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 65%);
-  pointer-events: none;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--grad);
 }
 .stat {
   position: relative;
-  z-index: 1;
   min-width: 0;
+  padding: var(--sp-5) var(--sp-6) var(--sp-4);
 }
 .stat + .stat {
-  padding-left: var(--sp-4);
-  border-left: 1px solid rgba(255, 255, 255, 0.25);
+  border-left: 1px solid var(--border);
 }
 .label {
-  font-size: var(--fs-13);
+  color: var(--muted);
+  font-size: var(--fs-12);
   font-weight: 600;
-  opacity: 0.92;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .value {
-  margin: var(--sp-1) 0;
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin: 6px 0 4px;
+  color: var(--text);
   font-size: var(--fs-32);
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.025em;
   line-height: 1.1;
   white-space: nowrap;
 }
 .value small,
 .kv small {
   margin-left: 4px;
+  color: var(--muted);
   font-size: var(--fs-14);
   font-weight: 600;
-  opacity: 0.85;
+  letter-spacing: 0;
 }
 .foot {
+  color: var(--muted);
   font-size: var(--fs-12);
-  opacity: 0.9;
 }
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
+  padding: 0 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  font-weight: 700;
+  background: color-mix(in srgb, var(--good) 12%, var(--surface));
+  color: var(--good-text);
 }
 .chipBad {
-  background: #ffe3e0;
-  color: #9b1c12;
+  background: color-mix(in srgb, var(--critical) 12%, var(--surface));
+  color: var(--critical-text);
+}
+/* Tutum göstəricisi: lazım olan ştat / mövcud ştat (100% = tam istifadə) */
+.meter {
+  position: relative;
+  height: 6px;
+  margin-top: var(--sp-3);
+  border-radius: 999px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--border);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--series-now, #f2501e);
+}
+.meter > span[data-over='true'] {
+  background: var(--critical);
 }
 .kpis {
   display: grid;
@@ -117,8 +143,8 @@
   width: 40px;
   height: 40px;
   border-radius: var(--r-md);
-  background: linear-gradient(120deg, rgba(227, 6, 19, 0.1), rgba(255, 122, 26, 0.12));
-  color: var(--brand);
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 .kl {
   color: var(--muted);
@@ -127,8 +153,9 @@
 }
 .kv {
   font-size: var(--fs-24);
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 .kf {
   color: var(--text-2);
@@ -166,22 +193,37 @@
     grid-template-columns: repeat(2, 1fr);
   }
   .stat:nth-child(3) {
-    padding-left: 0;
     border-left: none;
+  }
+  .stat:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
   }
 }
+/* Mobil: hero 2×2 kompakt, KPI kartları 2 sütun (ikon yuxarıda) — uzun sürüşdürmə əvəzinə bir baxışda */
 @media (max-width: 559.98px) {
-  .hero,
-  .kpis {
-    grid-template-columns: 1fr;
-  }
-  .stat + .stat {
-    padding: var(--sp-3) 0 0;
-    border-left: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.25);
+  .stat {
+    padding: var(--sp-3) var(--sp-4);
   }
   .value {
     font-size: var(--fs-24);
+  }
+  .foot {
+    font-size: 11px;
+  }
+  .kpis {
+    gap: var(--sp-2);
+  }
+  .card {
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+  }
+  .ic {
+    width: 32px;
+    height: 32px;
+  }
+  .kv {
+    font-size: var(--fs-20);
   }
 }
 

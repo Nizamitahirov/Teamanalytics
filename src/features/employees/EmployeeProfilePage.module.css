@@ -20,10 +20,10 @@
   width: 56px;
   height: 56px;
   border-radius: var(--r-lg);
-  background: var(--grad);
-  color: #fff;
+  background: var(--primary-soft);
+  color: var(--brand-text);
   font-size: var(--fs-24);
-  font-weight: 800;
+  font-weight: 700;
 }
 .who {
   flex: 1;

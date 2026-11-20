@@ -69,11 +69,11 @@ export function waterfallOption(steps: Step[], norm: number, th: ChartTheme, t: 
         },
       },
       series: [
-        { type: 'bar', stack: 'wf', silent: true, itemStyle: { color: 'transparent' }, data: bases, barWidth: '56%' },
+        { type: 'bar', stack: 'wf', silent: true, itemStyle: { color: 'transparent' }, data: bases, barWidth: '38%' },
         {
           type: 'bar',
           stack: 'wf',
-          barWidth: '56%',
+          barWidth: '38%',
           data: vals.map((v, i) => ({
             value: v,
             itemStyle: {

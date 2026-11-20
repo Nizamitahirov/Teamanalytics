@@ -76,12 +76,13 @@
   width: 40px;
   height: 40px;
   border-radius: var(--r-md);
-  background: var(--grad);
-  color: #fff;
-  font-weight: 800;
+  background: var(--primary-soft);
+  color: var(--brand-text);
+  font-weight: 700;
 }
 .avatarGroup {
   background: var(--ink);
+  color: #fff;
 }
 .name {
   overflow: hidden;

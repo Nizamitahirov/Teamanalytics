@@ -27,8 +27,8 @@
   width: 40px;
   height: 40px;
   border-radius: var(--r-md);
-  background: var(--grad);
-  color: #fff;
+  background: var(--primary-soft);
+  color: var(--brand-text);
 }
 .kpiLabel {
   color: var(--text-2);

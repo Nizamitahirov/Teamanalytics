@@ -4,6 +4,8 @@
   justify-content: center;
   gap: var(--sp-2);
   min-height: 36px;
+  font-family: inherit;
+  letter-spacing: -0.005em;
   padding: 0 var(--sp-4);
   border: 1px solid transparent;
   border-radius: var(--r-md);
@@ -34,17 +36,21 @@
   border-radius: var(--r-sm);
 }
 .primary {
-  background: var(--grad);
+  background: var(--primary);
   color: #fff;
   box-shadow: var(--shadow-brand);
 }
 .primary:hover:not(:disabled) {
-  filter: brightness(1.06);
+  background: var(--primary-hover);
 }
 .secondary {
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
+  box-shadow: var(--shadow-1);
+}
+.secondary:hover:not(:disabled) {
+  border-color: var(--border-strong);
 }
 .secondary:hover:not(:disabled) {
   background: var(--surface-2);
@@ -57,12 +63,19 @@
   background: var(--hover);
 }
 .danger {
-  background: #fde8e8;
-  color: #b4121b;
+  background: color-mix(in srgb, var(--critical) 12%, var(--surface));
+  color: var(--critical-text);
+}
+.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--critical) 18%, var(--surface));
 }
 .success {
-  background: #e3f7ec;
-  color: #0b7a3e;
+  background: color-mix(in srgb, var(--good) 12%, var(--surface));
+  color: var(--good-text);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .icon {
   width: 36px;

@@ -42,11 +42,14 @@ jobs:
           CI: '1'
 
       - name: E2E v1 (dev/e2e.py — v1 klienti yeni TS serverə qarşı)
+        # Mərhələ 9-dan bəri bu addım ilişib qalırdı: wait-on HEAD sorğusu göndərir, /api/health isə HEAD-ə 405 qaytarırdı
+        # (düzəldildi). Yenə ilişərsə: 60 s limit, addım limiti və server logu çap olunur.
+        timeout-minutes: 8
         run: |
           pip install openpyxl playwright==$(node -p "require('@playwright/test/package.json').version")
           python -m playwright install chromium
           npm run dev > dev-server.log 2>&1 &
-          npx --yes wait-on@8.0.3 http://localhost:8765/api/health
+          npx --yes wait-on@8.0.3 --timeout 60000 http://127.0.0.1:8765/api/health || { echo '--- dev-server.log ---'; cat dev-server.log; exit 1; }
           npm run e2e:v1
         env:
           E2E_OUT: dev/e2e-shots

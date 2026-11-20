@@ -46,7 +46,9 @@ export default async function handler(req: Req, res: Res) {
       return fail(res, e);
     }
   }
-  if (req.method !== 'GET') return sendError(res, 405, 'method_not_allowed', 'GET və ya POST gözlənilir');
+  // HEAD — monitorinq alətləri (wait-on, uptime yoxlayıcıları) üçün; Node HEAD cavabında gövdəni göndərmir
+  if (req.method !== 'GET' && req.method !== 'HEAD')
+    return sendError(res, 405, 'method_not_allowed', 'GET, HEAD və ya POST gözlənilir');
   const q = new URL(req.url || '/', 'http://x').searchParams;
   if (q.has('errors')) {
     const me = await requireUser(req, res, 'admin');

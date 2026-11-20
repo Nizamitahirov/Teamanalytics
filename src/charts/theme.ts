@@ -24,10 +24,10 @@ export type ChartTheme = {
 
 export const lightTheme: ChartTheme = {
   mode: 'light',
-  text: '#11131C',
-  text2: '#3D4152',
-  muted: '#696D80',
-  grid: '#E6E6EC',
+  text: '#0F172A',
+  text2: '#334155',
+  muted: '#5B6577',
+  grid: '#E6EBF2',
   surface: '#FFFFFF',
   cat: ['#2347A8', '#F2501E', '#12A39A', '#7B5CD6', '#C2378A', '#8A6A00'],
   good: '#0ca30c',
@@ -38,8 +38,8 @@ export const lightTheme: ChartTheme = {
   company: { Birbank: '#E30613', Pashapay: '#2347A8' },
   activity: { Administrativ: '#5B6478', 'Project and AdHoc based': '#F2501E' },
   neutral: '#5B6478',
-  tooltipBg: '#090A13',
-  tooltipText: '#FFFFFF',
+  tooltipBg: '#0F172A',
+  tooltipText: '#F8FAFC',
 };
 
 export const darkTheme: ChartTheme = {
@@ -82,7 +82,11 @@ export function base(th: ChartTheme, description: string) {
       borderWidth: 0,
       padding: [8, 12],
       textStyle: { color: th.tooltipText, fontSize: 12 },
-      extraCssText: 'border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);',
+      extraCssText: 'border-radius:8px;box-shadow:0 10px 30px -8px rgba(15,23,42,.35);line-height:1.55;',
+      axisPointer: {
+        type: 'shadow',
+        shadowStyle: { color: th.mode === 'light' ? 'rgba(15,23,42,0.04)' : 'rgba(255,255,255,0.05)' },
+      },
     },
   };
 }
@@ -92,7 +96,8 @@ export const axisStyle = (th: ChartTheme) => ({
   axisLine: { show: false },
   axisTick: { show: false },
   axisLabel: { color: th.muted, fontSize: 11 },
-  splitLine: { lineStyle: { color: th.grid } },
+  // Sakit, qırıq grid xətləri (Data-Dense üslubu)
+  splitLine: { lineStyle: { color: th.grid, type: [3, 3] as number[] } },
 });
 
 export type TableView = { columns: string[]; rows: (string | number)[][] };

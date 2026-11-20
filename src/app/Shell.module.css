@@ -27,14 +27,14 @@
   height: 420px;
   left: -180px;
   top: -220px;
-  background: radial-gradient(circle, rgba(255, 90, 20, 0.35), transparent 65%);
+  background: radial-gradient(circle, rgba(255, 90, 20, 0.18), transparent 65%);
 }
 .side::after {
   width: 360px;
   height: 360px;
   right: -220px;
   bottom: -160px;
-  background: radial-gradient(circle, rgba(227, 6, 19, 0.28), transparent 65%);
+  background: radial-gradient(circle, rgba(227, 6, 19, 0.14), transparent 65%);
 }
 .collapsed .side {
   width: var(--side-w-collapsed);
@@ -81,10 +81,11 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 var(--sp-3);
-  border-radius: var(--r-md);
-  color: rgba(255, 255, 255, 0.74);
+  border-radius: var(--r-sm);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--fs-14);
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -99,10 +100,26 @@
   background: rgba(255, 255, 255, 0.07);
   color: #fff;
 }
+.link {
+  position: relative;
+}
+/* Aktiv bölmə: sakit fon + soldakı brend zolağı və narıncı ikon (tam qradiyent əvəzinə) */
 .link[aria-current='page'] {
-  background: var(--grad);
+  background: rgba(255, 255, 255, 0.09);
   color: #fff;
-  box-shadow: var(--shadow-brand);
+}
+.link[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--grad);
+}
+.link[aria-current='page'] svg {
+  color: #ff7a3d;
 }
 .collapsed .label,
 .collapsed .logoText,

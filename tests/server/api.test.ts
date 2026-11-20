@@ -237,4 +237,10 @@ describe('health', () => {
     expect(r.body.service_account).toMatch(/layihə: demo/);
     expect(JSON.stringify(r.body)).not.toMatch(/PRIVATE KEY/);
   });
+  it('HEAD → 200 (wait-on və uptime monitorları HEAD göndərir — əvvəl 405 idi, CI ilişirdi)', async () => {
+    const res = await fetch(base + '/api/health', { method: 'HEAD' });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('');
+    expect((await fetch(base + '/api/health', { method: 'PUT' })).status).toBe(405);
+  });
 });

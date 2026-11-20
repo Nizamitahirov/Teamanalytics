@@ -126,6 +126,7 @@ export const en: Dict = {
   'kpi.need': 'Required FTE',
   'kpi.needFoot': '{h} ÷ {norm} hours (effective norm)',
   'kpi.have': 'Available FTE',
+  'kpi.utilization': 'Headcount utilisation (needed ÷ available)',
   'kpi.haveFoot': '{n} people with tasks',
   'kpi.reserve': 'Spare capacity',
   'kpi.shortage': 'Headcount gap',
