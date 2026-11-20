@@ -52,7 +52,7 @@ export function TaskPicker({
       </div>
       <ul className={s.list} aria-label={label}>
         {list.slice(0, LIMIT).map((x) => (
-          <li key={x.id}>
+          <li key={x.id} data-task-id={x.id}>
             <label className={s.item}>
               <input type={multi ? 'checkbox' : 'radio'} name={id} checked={value.includes(x.id)} onChange={() => toggle(x.id)} />
               <span className={s.text}>

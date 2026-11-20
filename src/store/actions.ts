@@ -1,8 +1,19 @@
 // Domen əməliyyatları (v1 public/app.js → transferTasks, setCancelled, deleteTasks, saveTaskFromModal,
 // openEmployeeModal-ın köçürməsi). Hamısı dataStore.commit ilə: undo, jurnal, diff, sinxron avtomatikdir.
 import { ACT_ADMIN } from '../../shared/constants';
-import { curOwner, normalizeTask, taskLabel, type DataState, type EmployeeDoc, type TaskDoc } from '../../shared/model';
+import {
+  curOwner,
+  normalizeTask,
+  taskLabel,
+  type Automation,
+  type DataState,
+  type EmployeeDoc,
+  type TaskDoc,
+} from '../../shared/model';
+import { addIgnore, calcHours, type Finding } from '../../shared/health';
+import { formatNumber } from '../../shared/format';
 import type { Draft } from 'immer';
+import type { LogEntry } from '../../shared/schema';
 import type { DataStore } from './dataStore';
 
 export const newTaskId = () => 'T-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -181,6 +192,169 @@ export function createActions(store: DataStore) {
       st().commit(`${name} silindi`, (d) => void (d.employees = d.employees.filter((e) => e.name !== name)), [
         { action: 'Əməkdaş', task_label: `${name} silindi` },
       ]);
+      return true;
+    },
+
+    /* ---------- Optimizasiya portfeli (SPEC §6.6) ---------- */
+
+    /**
+     * Statusu dəyiş. `done` + `replaceHours` → saat `after_opt` ilə əvəz olunur, köhnə saat `opt_before`-da və jurnalda.
+     * `done`-dan geri çıxanda əvəz olunmuş saat bərpa olunur.
+     */
+    setAutomation(id: string, status: Automation, replaceHours = false): boolean {
+      const t = st().data.tasks.find((x) => x.id === id);
+      if (!t || (t.automation === status && !replaceHours)) return false;
+      const replace = status === 'done' && replaceHours && t.after_opt != null && t.after_opt !== t.hours;
+      const restore = status !== 'done' && t.automation === 'done' && t.opt_before != null;
+      const logs: Partial<LogEntry>[] = [
+        { action: 'Optimizasiya', task_id: t.id, task_label: taskLabel(t), from: t.automation ?? 'none', to: status },
+      ];
+      if (replace)
+        logs.push({
+          action: 'Düzəliş',
+          task_id: t.id,
+          task_label: taskLabel(t),
+          from: formatNumber(t.hours, 2),
+          to: formatNumber(t.after_opt!, 2),
+        });
+      if (restore)
+        logs.push({
+          action: 'Düzəliş',
+          task_id: t.id,
+          task_label: taskLabel(t),
+          from: formatNumber(t.hours, 2),
+          to: formatNumber(t.opt_before!, 2),
+        });
+      st().commit(
+        `${taskLabel(t)}: ${status}`,
+        (d) => {
+          const x = d.tasks.find((y) => y.id === id)!;
+          x.automation = status;
+          x.updated_at = nowIso();
+          if (replace) {
+            x.opt_before = x.hours;
+            x.hours = x.after_opt!;
+          }
+          if (restore) {
+            x.hours = x.opt_before!;
+            x.opt_before = null;
+          }
+          x.opt_done_at = status === 'done' ? nowIso() : '';
+        },
+        logs,
+      );
+      return true;
+    },
+
+    /** Portfel kartı: hədəf saat, hədəf rüb, qeyd (və portfelə əlavə edəndə status). */
+    saveOptimization(
+      id: string,
+      v: { after_opt: number | null; due_quarter: string; automation_note: string; automation?: Automation },
+    ): boolean {
+      const t = st().data.tasks.find((x) => x.id === id);
+      if (!t) return false;
+      const status = v.automation ?? t.automation ?? 'candidate';
+      if (
+        t.after_opt === v.after_opt &&
+        (t.due_quarter ?? '') === v.due_quarter &&
+        (t.automation_note ?? '') === v.automation_note &&
+        t.automation === status
+      )
+        return false;
+      st().commit(
+        `${taskLabel(t)}: optimizasiya`,
+        (d) => {
+          const x = d.tasks.find((y) => y.id === id)!;
+          Object.assign(x, {
+            after_opt: v.after_opt,
+            due_quarter: v.due_quarter,
+            automation_note: v.automation_note,
+            automation: status,
+          });
+          x.updated_at = nowIso();
+        },
+        [
+          {
+            action: 'Optimizasiya',
+            task_id: t.id,
+            task_label: taskLabel(t),
+            from: t.after_opt != null ? formatNumber(t.after_opt, 2) : '',
+            to: v.after_opt != null ? formatNumber(v.after_opt, 2) : '',
+            comment: [v.due_quarter, v.automation_note].filter(Boolean).join(' · '),
+          },
+        ],
+      );
+      return true;
+    },
+
+    /* ---------- Data sağlamlığı (SPEC §6.8) ---------- */
+
+    /** "Fərqlidir" / "Saxla": tapıntı açarı aid sənədlərin `health_ignore` sahəsinə yazılır (bir daha göstərilmir). */
+    ignoreFinding(f: Finding): void {
+      st().commit(
+        'Data sağlamlığı: saxlanıldı',
+        (d) => {
+          if (f.employees.length) {
+            const e = d.employees.find((x) => x.name === f.employees[0]);
+            if (e) e.health_ignore = addIgnore(e.health_ignore, f.key);
+          } else {
+            const t = d.tasks.find((x) => x.id === f.tasks[0]);
+            if (t) t.health_ignore = addIgnore(t.health_ignore, f.key);
+          }
+        },
+        [{ action: 'Data sağlamlığı', task_id: f.tasks[0] ?? '', task_label: `Saxlanıldı: ${f.key}` }],
+      );
+    },
+
+    /** Saatı `min_per_key × annual_freq / 60` ilə əvəz et. */
+    useCalculatedHours(id: string): boolean {
+      const t = st().data.tasks.find((x) => x.id === id);
+      const calc = t ? calcHours(t) : null;
+      if (!t || calc == null) return false;
+      const h = Math.round(calc * 100) / 100;
+      st().commit(
+        `${taskLabel(t)}: saat ${formatNumber(h, 2)}`,
+        (d) => {
+          const x = d.tasks.find((y) => y.id === id)!;
+          x.hours = h;
+          x.updated_at = nowIso();
+        },
+        [
+          {
+            action: 'Düzəliş',
+            task_id: t.id,
+            task_label: taskLabel(t),
+            from: formatNumber(t.hours, 2),
+            to: formatNumber(h, 2),
+            comment: 'Data sağlamlığı: hesablanmış saat',
+          },
+        ],
+      );
+      return true;
+    },
+
+    /** ID düzəlişi: sənəd açarı id-dir → köhnə silinir (tombstone), eyni sahələrlə yenisi yaranır. */
+    renameTask(oldId: string, newId: string): boolean {
+      const t = st().data.tasks.find((x) => x.id === oldId);
+      if (!t || !newId || st().data.tasks.some((x) => x.id === newId)) return false;
+      st().commit(
+        `${oldId} → ${newId}`,
+        (d) => {
+          const x = d.tasks.find((y) => y.id === oldId)!;
+          d.tasks = d.tasks.filter((y) => y.id !== oldId);
+          d.tasks.push({ ...x, id: newId, updated_at: nowIso(), _v: 0 });
+        },
+        [
+          {
+            action: 'Düzəliş',
+            task_id: newId,
+            task_label: taskLabel(t),
+            from: oldId,
+            to: newId,
+            comment: 'Data sağlamlığı: ID düzəlişi',
+          },
+        ],
+      );
       return true;
     },
 

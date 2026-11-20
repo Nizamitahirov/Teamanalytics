@@ -5,6 +5,9 @@ import type { Employee, LogEntry, Op, Settings, Task } from './schema.js';
 
 /** Sənəd + server versiyası (`_v`, SPEC §4.3). Versiyası olmayan köhnə sənədlər `0` sayılır. */
 export type TaskDoc = Task & { _v?: number };
+/** Optimizasiya portfeli statusu (SPEC §4.5, §6.6) */
+export const AUTOMATION = ['none', 'candidate', 'in_progress', 'done', 'rejected'] as const;
+export type Automation = (typeof AUTOMATION)[number];
 export type EmployeeDoc = Employee & { _v?: number };
 export type DataState = { tasks: TaskDoc[]; employees: EmployeeDoc[]; log: LogEntry[]; settings: Settings };
 
@@ -27,8 +30,15 @@ export const TASK_FIELDS = [
   'after_opt',
   'is_cancelled',
   'updated_at',
+  // v2 (Mərhələ 7): optimizasiya portfeli və data sağlamlığı — v1 bunları göndərmir (updateMask ilə qorunur)
+  'automation',
+  'automation_note',
+  'due_quarter',
+  'opt_before',
+  'opt_done_at',
+  'health_ignore',
 ] as const;
-export const EMP_FIELDS = ['name', 'company', 'activity', 'fte', 'is_group', 'active'] as const;
+export const EMP_FIELDS = ['name', 'company', 'activity', 'fte', 'is_group', 'active', 'health_ignore'] as const;
 /** Ziddiyyət yoxlamasında nəzərə alınmayan texniki sahələr (hər yazmada dəyişir). */
 export const META_FIELDS = new Set(['updated_at', 'updated_by']);
 
@@ -59,6 +69,17 @@ export function normalizeTask(t: Record<string, unknown>): TaskDoc {
     is_cancelled: truthy(t.is_cancelled),
     updated_at: str(t.updated_at),
     updated_by: str(t.updated_by),
+    // Miqrasiya qaydası (SPEC §4.5): sahə yoxdursa after_opt olan iş "namizəd"dir
+    automation: (AUTOMATION as readonly string[]).includes(str(t.automation))
+      ? (str(t.automation) as Automation)
+      : num(t.after_opt) != null
+        ? 'candidate'
+        : 'none',
+    automation_note: str(t.automation_note),
+    due_quarter: /^\d{4}-Q[1-4]$/.test(str(t.due_quarter)) ? str(t.due_quarter) : '',
+    opt_before: num(t.opt_before),
+    opt_done_at: str(t.opt_done_at),
+    health_ignore: str(t.health_ignore),
     _v: ver(t._v),
   };
 }
@@ -71,6 +92,7 @@ export function normalizeEmployee(e: Record<string, unknown>): EmployeeDoc {
     fte: num(e.fte) ?? 1,
     is_group: truthy(e.is_group),
     active: e.active === undefined || e.active === null || e.active === '' ? true : truthy(e.active),
+    health_ignore: str(e.health_ignore),
     _v: ver(e._v),
   };
 }

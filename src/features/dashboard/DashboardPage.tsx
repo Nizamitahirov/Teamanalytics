@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { AlertCircle, Ban, Flame, Inbox, Repeat, Zap } from 'lucide-react';
+import { AlertCircle, Ban, Flame, Inbox, Repeat, ShieldAlert, Zap } from 'lucide-react';
 import { ACT_ADMIN, ACT_PROJECT } from '../../../shared/constants';
 import type { Filters } from '../../../shared/metrics';
 // Qrafiklər (ECharts) ayrıca chunk-da: hero və KPI-lar dərhal görünür, qrafiklər arxasınca (SPEC §11 — LCP)
@@ -12,6 +12,7 @@ import { fmtFte, fmtHours, fmtPct, formatNumber } from '../../../shared/format';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import { RebalanceButton } from '../scenarios/RebalanceButton';
+import { useHealth } from '../../hooks/useHealth';
 import s from './DashboardPage.module.css';
 
 /**
@@ -44,6 +45,7 @@ export function DashboardPage() {
     () => computeMetrics({ tasks, employees, settings }, { view, filters }),
     [tasks, employees, settings, view, filters],
   );
+  const health = useHealth();
   const companies = useMemo(() => [...new Set(tasks.map((x) => x.company))].sort((a, b) => a.localeCompare(b, 'az')), [tasks]);
 
   if (!ready)
@@ -169,6 +171,11 @@ export function DashboardPage() {
         />
       </section>
 
+      {health.length > 0 && (
+        <Link to="/health" className={s.healthLink} data-testid="health-link">
+          <ShieldAlert size={15} aria-hidden="true" /> {t('health.dashLink', { n: health.length })}
+        </Link>
+      )}
       {m.over.length > 0 && (
         <div className={s.over}>
           <strong>{t('dash.overList')}:</strong>

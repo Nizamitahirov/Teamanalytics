@@ -11,6 +11,7 @@ import {
   type Metrics,
   type MetricsInput,
   type View,
+  realizedSaving,
 } from './metrics.js';
 import type { LogEntry } from './schema.js';
 
@@ -124,10 +125,13 @@ export function loadHeatmap(
 export type Step = { key: string; value: number; kind: 'total' | 'minus' };
 export function waterfall(input: MetricsInput, filters: Filters = {}): Step[] {
   const { scope, active } = filterScope(input, filters);
-  const all = scope.reduce((a, t) => a + (t.hours || 0), 0);
+  // Realizə olunmuş optimizasiya (§7.8): yalnız saatı artıq əvəz olunmuş işlər (opt_before) körpüyə düşür —
+  // başlanğıc cəm onların köhnə saatı ilə hesablanır ki, "hamısı − ləğv − realizə = cari" bərabərliyi qalsın.
+  const realized = active
+    .filter((t) => t.automation === 'done' && t.opt_before != null)
+    .reduce((a, t) => a + realizedSaving(t), 0);
+  const all = scope.reduce((a, t) => a + (t.hours || 0), 0) + realized;
   const cancelled = scope.filter((t) => t.is_cancelled).reduce((a, t) => a + (t.hours || 0), 0);
-  // Realizə olunmuş optimizasiya (§7.8) jurnaldan hesablanır — avtomatlaşdırma portfeli Mərhələ 7-də; hələlik 0
-  const realized = 0;
   const current = active.reduce((a, t) => a + (t.hours || 0), 0);
   const potential = computeMetrics(input, { filters }).optPotential;
   return [

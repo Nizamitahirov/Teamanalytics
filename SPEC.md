@@ -509,7 +509,7 @@ Hər mərhələ: branch, PR, CI yaşıl, QM-lər yoxlanıb, sahibə ekran şəki
 | 4 | **Panel** ✅ (ADR-004) | §6.2 bütün vidjetlər, ECharts temaları, "Cədvəl kimi bax", tünd rejim | Vizual testlər; a11y 0 ciddi |
 | 5 | **Rollar + təhlükəsizlik** ✅ (ADR-005) | RBAC, sessiya versiyası, kilid, məcburi parol dəyişmə, CSP, audit | RBAC matrisi testləri |
 | 6 | **Ssenarilər + Balanslama** — icra olunub, PR gözləyir (ADR-006) | §6.5, §8, təsdiq axını, bildirişlər | Ssenari canlı dataya yazmır (test) |
-| 7 | **Optimizasiya + Data sağlamlığı** | §6.6, §6.8 | Seed tapıntıları aşkarlanır |
+| 7 | **Optimizasiya + Data sağlamlığı** — icra olunub, PR gözləyir (ADR-007) | §6.6, §6.8 | Seed tapıntıları aşkarlanır |
 | 8 | **Hesabatlar + Excel v2** | §6.7, §9 | PDF 2–4 səhifə, import diff önizləmə |
 | 9 | **Əməliyyat** | Cron (snapshot, backup, təmizlik), trend vidjetləri, health v2, xəta izləmə, PWA | Cron lokal testdə; backup→bərpa e2e |
 | 10 | **Keçid** | Miqrasiya skripti, v1 → v2 keçidi, `legacy/`, README/CLAUDE.md yeniləmə, sahibə təlimat | Canlıda qızıl rəqəmlər eyni; Lighthouse hədəfləri |

@@ -26,6 +26,15 @@ export const TaskSchema = z.object({
   is_cancelled: z.boolean(),
   updated_at: text.optional(),
   updated_by: text.optional(),
+  /** v2 (SPEC §4.5, §6.6, §6.8) — isteğe bağlı */
+  automation: z.enum(['none', 'candidate', 'in_progress', 'done', 'rejected']).optional(),
+  automation_note: text.optional(),
+  due_quarter: text.optional(),
+  /** "Tamamlandı" edilərkən saat after_opt ilə əvəz olunubsa — köhnə saat (realizə olunmuş qənaət üçün) */
+  opt_before: optNum.optional(),
+  opt_done_at: text.optional(),
+  /** Data sağlamlığında "Fərqlidir/Saxla" ilə susdurulan tapıntı açarları (vergüllə) */
+  health_ignore: text.optional(),
 });
 export type Task = z.infer<typeof TaskSchema>;
 
@@ -36,6 +45,7 @@ export const EmployeeSchema = z.object({
   fte: z.number().finite().min(0),
   is_group: z.boolean(),
   active: z.boolean(),
+  health_ignore: text.optional(),
 });
 export type Employee = z.infer<typeof EmployeeSchema>;
 
