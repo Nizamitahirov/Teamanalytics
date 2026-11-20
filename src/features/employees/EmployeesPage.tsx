@@ -10,7 +10,7 @@ import { Button } from '../../components/Button';
 import { CompanyBadge, LoadBar, LoadChip } from '../../components/Badges';
 import { Skeleton } from '../../components/Skeleton';
 import { ACT_ADMIN, ACT_PROJECT } from '../../../shared/constants';
-import { levelOf, type LoadLevel } from '../../../shared/metrics';
+import { effectiveNorm, levelOf, type LoadLevel } from '../../../shared/metrics';
 import { fmtFte, fmtHours } from '../../../shared/format';
 import { matches } from '../../../shared/search';
 import type { MessageKey } from '../../../shared/i18n/az';
@@ -51,7 +51,7 @@ export function EmployeesPage() {
     return employees
       .map((e) => {
         const l = loads.get(e.name);
-        const cap = l?.cap ?? settings.norm * e.fte;
+        const cap = l?.cap ?? effectiveNorm(settings) * e.fte;
         const hours = l?.hours ?? 0;
         const load = l?.load ?? 0;
         return { e, hours, tasks: l?.tasks ?? 0, cap, load, level: levelOf(load, settings.warn) };

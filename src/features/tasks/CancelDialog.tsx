@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Ban } from 'lucide-react';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
+import { effectiveNorm } from '../../../shared/metrics';
 import { useI18n } from '../../lib/i18n';
 import { toast } from '../../lib/toast';
 import { actions, dataStore, useData } from '../../store';
@@ -15,7 +16,8 @@ export function CancelDialog({ ids, onClose, onDone }: { ids: string[]; onClose:
   const { t } = useI18n();
   const all = useData((st) => st.data.tasks);
   const list = useMemo(() => all.filter((x) => ids.includes(x.id) && !x.is_cancelled), [all, ids]);
-  const norm = useData((st) => st.data.settings.norm);
+  // Effektiv norma (norma − məzuniyyət) — FTE ekvivalenti bununla
+  const norm = useData((st) => effectiveNorm(st.data.settings));
   const [comment, setComment] = useState('');
   const h = list.reduce((a, x) => a + x.hours, 0);
   const submit = () => {

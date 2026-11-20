@@ -71,6 +71,8 @@ export const SettingsSchema = z.object({
   approval: z.number().min(0).max(1).optional(),
   /** Bu saatdan (≥) böyük ötürmə təsdiqə gedir */
   approval_hours: z.number().min(0).optional(),
+  /** Normadan çıxılan illik məzuniyyət, gün (× 8 saat). Default 30 → 240 saat */
+  vacation_days: z.number().min(0).max(366).optional(),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

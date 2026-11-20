@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { RowSelectionState, SortingState } from '@tanstack/react-table';
 import { ArrowRightLeft, Ban, Columns3, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
+import { effectiveNorm } from '../../../shared/metrics';
 import { useI18n } from '../../lib/i18n';
 import { storage } from '../../lib/storage';
 import { toast } from '../../lib/toast';
@@ -40,7 +41,8 @@ export function TasksPage() {
   const ready = useData((st) => st.ready);
   const tasks = useData((st) => st.data.tasks);
   const employees = useData((st) => st.data.employees);
-  const norm = useData((st) => st.data.settings.norm);
+  // Effektiv norma (norma − məzuniyyət) — FTE ekvivalenti bununla
+  const norm = useData((st) => effectiveNorm(st.data.settings));
   const { m } = useMetrics();
   const { canEdit } = useCan();
 

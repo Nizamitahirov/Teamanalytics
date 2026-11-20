@@ -22,7 +22,8 @@ const raw = JSON.parse(readFileSync(new URL('../../data/seed.json', import.meta.
 const input = {
   tasks: raw.tasks.map(normalizeTask),
   employees: raw.employees.map(normalizeEmployee),
-  settings: { ...DEFAULT_SETTINGS },
+  // Köhnə qayda (məzuniyyətsiz, 1922) — v1 formulası ilə uyğunluq yoxlanır; 30 günlük qayda: seed-vacation.test.ts
+  settings: { ...DEFAULT_SETTINGS, vacation_days: 0 },
   year: 2026,
 };
 const m = computeMetrics(input);

@@ -12,7 +12,10 @@
 const ACT_PROJECT = 'Project and AdHoc based';
 const ACT_ADMIN = 'Administrativ';
 const STATUSES = ['Mövcud', 'Yeni', 'Transfer', 'Ləğv'];
-const DEFAULT_SETTINGS = { norm: 1922, warn: 85 };
+const DEFAULT_SETTINGS = { norm: 1922, warn: 85, vacation_days: 30 };
+// Effektiv norma: illik norma − məzuniyyət (gün × 8 saat). 2026: 1922 − 30 × 8 = 1682 (ADR-008, v2 shared/metrics.ts ilə eyni)
+const vacHours = () => Math.max(0, num(state.settings.vacation_days) ?? 30) * 8;
+const effNorm = () => Math.max(1, state.settings.norm - vacHours());
 
 let state = null;          // { tasks, employees, log, settings, version }
 let undoStack = [];
@@ -290,7 +293,7 @@ function filteredActive(company, activity) {
 }
 function employeeLoads(company, activity, useOpt) {
   const emps = empByName();
-  const norm = state.settings.norm;
+  const norm = effNorm();
   const rows = {};
   const add = (name) => rows[name] || (rows[name] = { name, hours: 0, before: 0, tasks: 0, emp: emps[name] || { name, fte: 1, activity: ACT_ADMIN, company: '', is_group: false } });
   filteredActive(company, activity).forEach(t => { const r = add(curOwner(t)); r.hours += effHours(t, useOpt); r.tasks++; });
@@ -337,7 +340,8 @@ function renderAll() {
   fillSelect($('tStatus'), STATUSES);
   fillSelect($('lAction'), [...new Set(state.log.map(l => l.action))].sort(sortAz));
   fillSelect($('lUser'), [...new Set(state.log.map(l => l.user).filter(Boolean))].sort(sortAz));
-  $('normLabel').textContent = fmt(state.settings.norm);
+  $('normLabel').textContent = fmt(effNorm());
+  $('normExplain').textContent = `${fmt(state.settings.norm)} saat − ${fmt(vacHours())} saat məzuniyyət (${fmt(vacHours() / 8)} təqvim günü × 8 saat)`;
   $('undoBtn').disabled = !undoStack.length;
   $('undoBtn').title = undoStack.length ? `Geri al: ${undoStack[undoStack.length - 1].label}` : 'Geri alınacaq əməliyyat yoxdur';
   const v = currentView();
@@ -362,7 +366,7 @@ const baseTooltip = { backgroundColor: '#090A13', padding: 10, cornerRadius: 8, 
 
 function renderDashboard() {
   const company = $('dCompany').value, activity = $('dActivity').value, useOpt = $('dOpt').checked;
-  const norm = state.settings.norm;
+  const norm = effNorm();
   const active = filteredActive(company, activity);
   const scope = state.tasks.filter(t => (company === 'all' || t.company === company) && (activity === 'all' || activityOf(curOwner(t)) === activity));
   const totalH = active.reduce((s, t) => s + effHours(t, useOpt), 0);
@@ -501,12 +505,12 @@ function renderEmployees() {
   const q = $('eSearch').value.trim().toLowerCase(), company = $('eCompany').value, activity = $('eActivity').value, sort = $('eSort').value;
   const loads = Object.fromEntries(employeeLoads('all', 'all', false).map(r => [r.name, r]));
   let list = state.employees.filter(e => (!q || e.name.toLowerCase().includes(q)) && (company === 'all' || e.company === company) && (activity === 'all' || e.activity === activity));
-  list = list.map(e => ({ e, r: loads[e.name] || { hours: 0, tasks: 0, load: 0, cap: state.settings.norm * (e.fte || 1) } }));
+  list = list.map(e => ({ e, r: loads[e.name] || { hours: 0, tasks: 0, load: 0, cap: effNorm() * (e.fte || 1) } }));
   list.sort((a, b) => sort === 'name' ? sortAz(a.e.name, b.e.name) : sort === 'tasks' ? b.r.tasks - a.r.tasks : (b.e.is_group - a.e.is_group) * -1 || b.r.load - a.r.load);
   if (!list.length) { $('empGrid').innerHTML = '<div class="empty">Uyğun əməkdaş tapılmadı.</div>'; return; }
   $('empGrid').innerHTML = list.map(({ e, r }) => {
     const l = level(r.load), w = Math.min(100, r.load * 100);
-    const cap = state.settings.norm * (e.fte || 1);
+    const cap = effNorm() * (e.fte || 1);
     return `<div class="card emp-card ${!e.is_group && r.load > 1 ? 'over' : ''}" data-emp="${esc(e.name)}">
       <div class="emp-top">
         <div class="avatar ${e.is_group ? 'group' : r.load > 1 ? 'hot' : ''}">${e.is_group ? '<i class="fas fa-users"></i>' : esc(e.name.charAt(0))}</div>
@@ -537,7 +541,7 @@ function closeDrawer() { drawerEmp = null; $('drawer').classList.remove('open');
 
 function renderDrawer(name) {
   const e = state.employees.find(x => x.name === name) || { name, company: '', activity: ACT_ADMIN, fte: 1, is_group: false };
-  const r = employeeLoads('all', 'all', false).find(x => x.name === name) || { hours: 0, tasks: 0, load: 0, cap: state.settings.norm };
+  const r = employeeLoads('all', 'all', false).find(x => x.name === name) || { hours: 0, tasks: 0, load: 0, cap: effNorm() };
   const l = level(r.load);
   const current = state.tasks.filter(t => curOwner(t) === name);
   const outgoing = state.tasks.filter(t => t.owner_before === name && t.owner_after && t.owner_after !== name);
@@ -631,7 +635,7 @@ function renderTasks() {
   const val = (t) => key === 'owner' ? curOwner(t) : key === 'status' ? statusOf(t) : t[key];
   list.sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number' || typeof y === 'number' ? (x || 0) - (y || 0) : sortAz(x || '', y || '')) * dir; });
   const sumH = list.filter(t => !t.is_cancelled).reduce((s, t) => s + (Number(t.hours) || 0), 0);
-  $('taskCount').textContent = `${list.length} tapşırıq göstərilir · aktiv olanların cəmi ${fmt(sumH)} saat (${fmt(sumH / state.settings.norm, 2)} FTE)`;
+  $('taskCount').textContent = `${list.length} tapşırıq göstərilir · aktiv olanların cəmi ${fmt(sumH)} saat (${fmt(sumH / effNorm(), 2)} FTE)`;
   const th = (k, label, cls = '') => `<th class="sortable ${cls}" data-sort="${k}">${label}${taskSort.key === k ? (dir > 0 ? ' ▲' : ' ▼') : ''}</th>`;
   $('taskTable').innerHTML = list.length ? `<table class="resp"><thead><tr>
       <th class="c-chk"><input type="checkbox" class="chk" data-all="tasks" aria-label="Hamısını seç"></th>
@@ -703,7 +707,7 @@ function openUserModal(name) {
 }
 function renderSettings() {
   if (!renderUsers.loaded) { renderUsers.loaded = true; renderUsers(); }
-  $('sNorm').value = state.settings.norm; $('sWarn').value = state.settings.warn;
+  $('sNorm').value = state.settings.norm; $('sWarn').value = state.settings.warn; $('sVacation').value = vacHours() / 8;
   $('dataInfo').innerHTML = `Bazada <b>${state.tasks.length}</b> tapşırıq, <b>${state.employees.length}</b> əməkdaş, <b>${state.log.length}</b> son jurnal qeydi yüklənib.`;
 }
 
@@ -754,7 +758,7 @@ function openTransferModal(ids, label) {
     if (to === '__new') to = $('trNew').value.trim();
     if (!to) { $('trImpact').innerHTML = '<span class="muted">Əməkdaş seçin — yükə təsiri burada görünəcək.</span>'; return; }
     const e = state.employees.find(x => x.name === to) || { fte: 1 };
-    const cap = state.settings.norm * (e.fte || 1);
+    const cap = effNorm() * (e.fte || 1);
     const incoming = list.filter(t => !t.is_cancelled && curOwner(t) !== to).reduce((s, t) => s + (Number(t.hours) || 0), 0);
     const before = loads[to] ? loads[to].hours : 0, after = before + incoming;
     const lb = level(before / cap), la = level(after / cap);
@@ -762,7 +766,7 @@ function openTransferModal(ids, label) {
       <div class="impact-row"><span>İndiki yük</span><span class="num lvl lvl-${lb.k}">${fmt(before, 1)} saat · ${pct(before / cap)}</span></div>
       <div class="impact-row"><span>Ötürmədən sonra</span><span class="num lvl lvl-${la.k}"><i class="fas ${la.icon}"></i> ${fmt(after, 1)} saat · ${pct(after / cap)}</span></div>`;
     owners.filter(o => o !== to).forEach(o => {
-      const oe = state.employees.find(x => x.name === o) || { fte: 1 }; const oc = state.settings.norm * (oe.fte || 1);
+      const oe = state.employees.find(x => x.name === o) || { fte: 1 }; const oc = effNorm() * (oe.fte || 1);
       const ob = loads[o] ? loads[o].hours : 0;
       const out = list.filter(t => !t.is_cancelled && curOwner(t) === o).reduce((s, t) => s + (Number(t.hours) || 0), 0);
       html += `<div class="impact-row"><span>${esc(o)}: ${pct(ob / oc)} →</span><span class="num">${pct((ob - out) / oc)}</span></div>`;
@@ -776,7 +780,7 @@ function openTransferModal(ids, label) {
 function openCancelModal(ids, value) {
   const list = state.tasks.filter(t => ids.includes(t.id));
   const h = list.reduce((s, t) => s + (Number(t.hours) || 0), 0);
-  openModal('Ləğv et', `<p style="margin-top:0">${list.length === 1 ? `<b>${esc(taskLabel(list[0]))}</b>` : `<b>${list.length}</b> tapşırıq`} ləğv ediləcək. İllik qənaət: <b>${fmt(h, 1)} saat</b> (${fmt(h / state.settings.norm, 2)} FTE).</p>
+  openModal('Ləğv et', `<p style="margin-top:0">${list.length === 1 ? `<b>${esc(taskLabel(list[0]))}</b>` : `<b>${list.length}</b> tapşırıq`} ləğv ediləcək. İllik qənaət: <b>${fmt(h, 1)} saat</b> (${fmt(h / effNorm(), 2)} FTE).</p>
     <div class="field"><label>Səbəb (istəyə bağlı)</label><input class="input" id="cnComment" placeholder="Məs: avtomatlaşdırıldı, artıq tələb olunmur"></div>
     <p class="hint">Ləğv edilən iş silinmir: siyahıda qalır və istənilən vaxt bərpa edilə bilər.</p>`,
   [{ label: 'Bağla' }, { label: '<i class="fas fa-ban"></i> Ləğv et', cls: 'btn-primary', fn: () => { const c = $('cnComment').value.trim(); closeModal(); setCancelled(ids, value, c); } }]);
@@ -926,7 +930,7 @@ async function exportExcel() {
   XLSX.utils.book_append_sheet(wb, ws2, 'Əməkdaşlar');
   const loads = employeeLoads('all', 'all', false).sort((a, b) => b.load - a.load).map(r => ({
     'Əməkdaş': r.name, 'Şirkət': r.emp.company, 'Fəaliyyət forması': r.emp.activity, 'Ştat': r.isGroup ? '' : r.fte, 'Tapşırıq sayı': r.tasks,
-    'Əvvəl (saat)': +r.before.toFixed(2), 'İndi (saat)': +r.hours.toFixed(2), 'Norma (saat)': r.isGroup ? '' : r.cap, 'Boş tutum (saat)': r.isGroup ? '' : +r.free.toFixed(2), 'Yük (%)': r.isGroup ? '' : +(r.load * 100).toFixed(1),
+    'Əvvəl (saat)': +r.before.toFixed(2), 'İndi (saat)': +r.hours.toFixed(2), 'Effektiv norma (saat)': r.isGroup ? '' : r.cap, 'Boş tutum (saat)': r.isGroup ? '' : +r.free.toFixed(2), 'Yük (%)': r.isGroup ? '' : +(r.load * 100).toFixed(1),
   }));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(loads), 'Yük analizi');
   let fullLog = state.log;
@@ -1038,10 +1042,11 @@ function bind() {
   $('bulkClear').onclick = () => { selected.clear(); renderAll(); updateBulk(); };
   // settings
   $('saveNormBtn').onclick = () => {
-    const n = num($('sNorm').value), w = num($('sWarn').value);
+    const n = num($('sNorm').value), w = num($('sWarn').value), vd = num($('sVacation').value);
     if (!n || n <= 0) return toast('Norma müsbət rəqəm olmalıdır.');
+    if (vd == null || vd < 0 || vd > 60 || !Number.isInteger(vd) || n - vd * 8 <= 0) return toast('Məzuniyyət 0–60 arasında tam gün olmalıdır.');
     const warn = w && w > 0 && w <= 100 ? w : 85;
-    commit('Norma yeniləndi', () => { state.settings.norm = n; state.settings.warn = warn; }, [{ action: 'Ayarlar', task_label: `Norma: ${n} saat, yüksək yük həddi: ${warn}%` }]);
+    commit('Norma yeniləndi', () => { state.settings.norm = n; state.settings.warn = warn; state.settings.vacation_days = vd; }, [{ action: 'Ayarlar', task_label: `Norma: ${n} saat, məzuniyyət: ${vd} gün (${vd * 8} saat) → effektiv ${n - vd * 8} saat, yüksək yük həddi: ${warn}%` }]);
   };
   $('refreshBtn').onclick = () => { pull({ full: true }).then(() => toast('Bazadan yeniləndi.')).catch(e => { setSync('err', 'Xəta'); toast(e.message); }); };
   $('addUserBtn').onclick = () => openUserModal(null);

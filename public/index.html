@@ -61,7 +61,7 @@
     <section id="view-dashboard" class="view hidden">
       <div class="hero">
         <div class="hero-top">
-          <div><h2>İllik iş həcmi və ştat ehtiyacı</h2><p>Norma: <b id="normLabel">1922</b> saat / 1 ştat (2026). Ləğv edilmiş işlər daxil deyil.</p></div>
+          <div><h2>İllik iş həcmi və ştat ehtiyacı</h2><p>Effektiv norma: <b id="normLabel">1682</b> saat / 1 ştat (<span id="normExplain">1922 saat − 240 saat məzuniyyət (30 təqvim günü × 8 saat)</span>). Yük və ştat ehtiyacı bu norma ilə hesablanır. Ləğv edilmiş işlər daxil deyil.</p></div>
           <div class="filters">
             <select class="select" id="dCompany" title="Şirkət"></select>
             <select class="select" id="dActivity" title="Fəaliyyət forması"></select>
@@ -173,7 +173,8 @@
             <div class="form-grid">
               <div class="field"><label>İllik norma (saat / 1 ştat)</label><input class="input" type="number" id="sNorm" min="1"></div>
               <div class="field"><label>Yüksək yük həddi (%)</label><input class="input" type="number" id="sWarn" min="1" max="100"></div>
-              <div class="full hint">2026-cı il üçün ölkə üzrə norma 1922 saatdır. Yarım ştat işləyən əməkdaşın profilində ştatı 0.5 yazın, onda onun norması 961 saat olur. Bu ayarlar bazada saxlanır və hamı üçün eynidir.</div>
+              <div class="field"><label>Məzuniyyət (təqvim günü / il)</label><input class="input" type="number" id="sVacation" min="0" max="60" step="1"></div>
+              <div class="full hint">2026-cı il üçün ölkə üzrə norma 1922 saatdır. Ondan məzuniyyət çıxılır (gün × 8 saat; 30 gün = 240 saat) → effektiv norma 1682 saat; yük və ştat ehtiyacı bununla hesablanır. Yarım ştat işləyən əməkdaşın profilində ştatı 0.5 yazın, onda onun effektiv norması 841 saat olur. Bu ayarlar bazada saxlanır və hamı üçün eynidir.</div>
             </div>
             <div style="margin-top:14px"><button class="btn btn-primary" id="saveNormBtn"><i class="fas fa-check"></i> Yadda saxla</button></div>
           </div>

@@ -48,9 +48,9 @@ test('balanslama ssenarisi: canlı dataya yazmır → tətbiq → geri alma', as
   await dlg.getByRole('button', { name: 'Dəyişiklik əlavə et' }).click();
   await expect(dlg).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Dəyişikliklər (1)' })).toBeVisible();
-  // Müqayisə: normanı aşan 3 → 0
+  // Müqayisə: normanı aşan 7 → 0 (effektiv norma 1682)
   const over = page.getByRole('row', { name: /Norması aşan/ });
-  await expect(over.getByRole('cell').nth(0)).toHaveText('3');
+  await expect(over.getByRole('cell').nth(0)).toHaveText('7');
   await expect(over.getByRole('cell').nth(1)).toHaveText('0');
   await expect(page.getByTestId('scn-load')).toBeVisible();
   await idle(page);
@@ -89,7 +89,7 @@ test('balanslama ssenarisi: canlı dataya yazmır → tətbiq → geri alma', as
   await expect(page.getByText('Arxiv').first()).toBeVisible();
   await idle(page);
   await page.goto('/');
-  await expect(page.getByTestId('kpi-over')).toContainText('3');
+  await expect(page.getByTestId('kpi-over')).toContainText('7');
 
   // Siyahı: status filtri və müqayisə
   await page.goto('/scenarios');

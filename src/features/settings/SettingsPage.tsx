@@ -13,6 +13,7 @@ import { ChangePasswordForm, MIN_PASSWORD } from '../auth/ChangePasswordForm';
 import { SHORTCUTS } from '../palette/CommandPalette';
 import { formatDateTime } from '../../lib/dates';
 import { formatNumber } from '../../../shared/format';
+import { HOURS_PER_DAY } from '../../../shared/constants';
 import type { Role, UserRow } from '../../../shared/schema';
 import type { MessageKey } from '../../../shared/i18n/az';
 import f from '../../components/Form.module.css';
@@ -94,15 +95,29 @@ function General() {
   const settings = useData((st) => st.data.settings);
   const [norm, setNorm] = useState(String(settings.norm));
   const [warn, setWarn] = useState(String(settings.warn));
+  const [vacation, setVacation] = useState(String(settings.vacation_days ?? 30));
   const [approval, setApproval] = useState(settings.approval === 1);
   const [approvalHours, setApprovalHours] = useState(String(settings.approval_hours ?? 40));
   const n = Number(norm.replace(',', '.'));
   const w = Number(warn.replace(',', '.'));
   const ah = Number(approvalHours.replace(',', '.'));
+  const vd = Number(vacation.replace(',', '.'));
   const valid =
-    Number.isFinite(n) && n >= 100 && n <= 4000 && Number.isFinite(w) && w >= 50 && w <= 100 && Number.isFinite(ah) && ah >= 0;
+    Number.isFinite(n) &&
+    n >= 100 &&
+    n <= 4000 &&
+    Number.isFinite(w) &&
+    w >= 50 &&
+    w <= 100 &&
+    Number.isFinite(ah) &&
+    ah >= 0 &&
+    Number.isInteger(vd) &&
+    vd >= 0 &&
+    vd <= 60 &&
+    n - vd * HOURS_PER_DAY > 0;
   const dirty =
     n !== settings.norm ||
+    vd !== (settings.vacation_days ?? 30) ||
     w !== settings.warn ||
     Number(approval) !== (settings.approval ?? 0) ||
     ah !== (settings.approval_hours ?? 40);
@@ -112,6 +127,7 @@ function General() {
       t('set.saved'),
       (d) => {
         d.settings.norm = n;
+        d.settings.vacation_days = vd;
         d.settings.warn = w;
         d.settings.approval = approval ? 1 : 0;
         d.settings.approval_hours = ah;
@@ -119,7 +135,7 @@ function General() {
       [
         {
           action: 'Ayarlar',
-          task_label: `Norma ${formatNumber(n)} saat, yüksək yük həddi ${w}%, təsdiq axını ${approval ? `açıq (${formatNumber(ah)}+ saat)` : 'söndürülü'}`,
+          task_label: `Norma ${formatNumber(n)} saat, məzuniyyət ${vd} gün (${formatNumber(vd * HOURS_PER_DAY)} saat) → effektiv ${formatNumber(n - vd * HOURS_PER_DAY)} saat, yüksək yük həddi ${w}%, təsdiq axını ${approval ? `açıq (${formatNumber(ah)}+ saat)` : 'söndürülü'}`,
         },
       ],
     );
@@ -142,6 +158,29 @@ function General() {
             disabled={!isAdmin}
           />
           <span className={f.hint}>{t('set.normHint')}</span>
+        </div>
+        <div className={f.field}>
+          <label className={f.label} htmlFor="set-vacation">
+            {t('set.vacation')}
+          </label>
+          <input
+            id="set-vacation"
+            className={f.input}
+            inputMode="numeric"
+            value={vacation}
+            onChange={(e) => setVacation(e.target.value)}
+            disabled={!isAdmin}
+          />
+          <span className={f.hint} data-testid="effective-norm">
+            {Number.isFinite(n) && Number.isFinite(vd)
+              ? t('set.vacationHint', {
+                  gross: formatNumber(n),
+                  days: formatNumber(vd),
+                  vac: formatNumber(vd * HOURS_PER_DAY),
+                  norm: formatNumber(n - vd * HOURS_PER_DAY),
+                })
+              : ''}
+          </span>
         </div>
         <div className={f.field}>
           <label className={f.label} htmlFor="set-warn">

@@ -1,6 +1,6 @@
 // Analitika formulaları — TƏK MƏNBƏ (SPEC §7). Rəhbərliyə gedən hər rəqəm buradan hesablanır.
 // Formulanı dəyişmək sahibin razılığını tələb edir (CLAUDE.md §9) və tests/golden/seed.test.ts ilə yoxlanır.
-import { ACT_ADMIN } from './constants.js';
+import { ACT_ADMIN, DEFAULT_SETTINGS, HOURS_PER_DAY } from './constants.js';
 import type { Settings } from './schema.js';
 import { curOwner, type EmployeeDoc, type TaskDoc } from './model.js';
 
@@ -40,7 +40,13 @@ export type EmployeeLoad = {
 };
 
 export type Metrics = {
+  /** Effektiv norma (saat/ştat) = normGross − vacationHours — bütün bölmələr bununla */
   norm: number;
+  /** İllik norma (məs. 1922) */
+  normGross: number;
+  /** Normadan çıxılan məzuniyyət saatları (məs. 30 × 8 = 240) */
+  vacationHours: number;
+  vacationDays: number;
   activeTasks: number;
   /** §7.2 İllik iş həcmi (görünüşə görə) */
   totalHours: number;
@@ -99,9 +105,18 @@ export function filterScope(input: Pick<MetricsInput, 'tasks' | 'employees'>, fi
   return { emp, activityOf, scope, active: scope.filter((t) => !t.is_cancelled) };
 }
 
+/** Normadan çıxılan məzuniyyət saatları: `vacation_days × 8` (default 30 gün = 240 saat). */
+export const vacationHours = (s: Pick<Settings, 'vacation_days'>) =>
+  Math.max(0, s.vacation_days ?? DEFAULT_SETTINGS.vacation_days) * HOURS_PER_DAY;
+/**
+ * Effektiv norma (1 ştatın real iş saatı): `norm − məzuniyyət`. 2026: 1922 − 240 = 1682.
+ * Yük, lazım olan ştat və tutum hamısı bununla hesablanır (sahibin qərarı, ADR-008).
+ */
+export const effectiveNorm = (s: Pick<Settings, 'norm' | 'vacation_days'>) => Math.max(1, s.norm - vacationHours(s));
+
 /** §7.3 Tutum: `N × fte × (capacity_override ?? 1) − məzuniyyət saatları`. Siyahıda olmayan ad → 1 ştat. */
 export function capacityFn(input: Pick<MetricsInput, 'settings' | 'absences'>, year: number) {
-  const N = input.settings.norm;
+  const N = effectiveNorm(input.settings);
   const absenceHours = new Map<string, number>();
   for (const a of input.absences ?? [])
     if (a.year == null || a.year === year) absenceHours.set(a.employee, (absenceHours.get(a.employee) ?? 0) + a.hours);
@@ -117,7 +132,8 @@ export function computeMetrics(
   { view = 'current', filters = {} }: { view?: View; filters?: Filters } = {},
 ): Metrics {
   const { settings } = input;
-  const N = settings.norm;
+  // Effektiv norma: illik norma − məzuniyyət (30 gün × 8 saat)
+  const N = effectiveNorm(settings);
   const year = input.year ?? new Date().getFullYear();
   const { emp, activityOf, scope, active } = filterScope(input, filters);
 
@@ -192,6 +208,9 @@ export function computeMetrics(
 
   return {
     norm: N,
+    normGross: settings.norm,
+    vacationHours: vacationHours(settings),
+    vacationDays: settings.vacation_days ?? DEFAULT_SETTINGS.vacation_days,
     activeTasks: active.length,
     totalHours,
     fteNeed,

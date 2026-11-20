@@ -11,7 +11,7 @@ import { CompanyBadge, LoadBar, LoadChip } from '../../components/Badges';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
 import { curOwner } from '../../../shared/model';
-import { levelOf } from '../../../shared/metrics';
+import { effectiveNorm, levelOf, vacationHours } from '../../../shared/metrics';
 import { fmtFte, fmtHours, fmtPct } from '../../../shared/format';
 import { formatDateTime } from '../../lib/dates';
 import { TaskTable, DEFAULT_HIDDEN } from '../tasks/TaskTable';
@@ -61,7 +61,7 @@ export function EmployeeProfilePage() {
   );
   const activeIds = current.filter((x) => !x.is_cancelled).map((x) => x.id);
   const l = loads.get(name);
-  const cap = l?.cap ?? settings.norm * (emp?.fte ?? 1);
+  const cap = l?.cap ?? effectiveNorm(settings) * (emp?.fte ?? 1);
   const hours = l?.hours ?? 0;
   const load = l?.load ?? 0;
 
@@ -152,7 +152,14 @@ export function EmployeeProfilePage() {
               </div>
               <LoadBar load={load} level={levelOf(load, settings.warn)} label={t('emp.loadOf', { name })} />
               <dl className={s.capList}>
-                <dt>{t('emp.capFormula', { norm: fmtHours(settings.norm), fte: fmtFte(emp?.fte ?? 1, 2) })}</dt>
+                <dt>
+                  {t('emp.capFormula', {
+                    gross: fmtHours(settings.norm),
+                    vac: fmtHours(vacationHours(settings)),
+                    norm: fmtHours(effectiveNorm(settings)),
+                    fte: fmtFte(emp?.fte ?? 1, 2),
+                  })}
+                </dt>
                 <dd>{fmtHours(cap)}</dd>
                 <dt>{t('emp.assigned')}</dt>
                 <dd>{fmtHours(hours)}</dd>

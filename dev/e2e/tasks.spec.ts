@@ -39,7 +39,7 @@ test.afterEach(() => {
 test('tapşırıqlar cədvəli: say, çiplər URL-də, ə/e axtarışı, yapışqan əməliyyat sütunu', async ({ page }) => {
   await login(page);
   await page.goto('/tasks');
-  await expect(page.getByText('341 tapşırıq · aktivlərin cəmi 27 850 saat (14,49 FTE)')).toBeVisible();
+  await expect(page.getByText('341 tapşırıq · aktivlərin cəmi 27 850 saat (16,56 FTE)')).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/v2-tasks-1440.png` });
   await page.getByRole('button', { name: 'Transferlər' }).click();
   await expect(page).toHaveURL(/quick=transfers/);

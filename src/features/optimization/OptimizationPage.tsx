@@ -53,7 +53,7 @@ export function OptimizationPage() {
     const task = tasks.find((x) => x.id === e.dataTransfer.getData('text/plain'));
     if (task) move(task, col);
   };
-  const N = settings.norm;
+  const N = m.norm; // effektiv norma
 
   return (
     <>

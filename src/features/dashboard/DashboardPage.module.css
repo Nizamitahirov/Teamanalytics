@@ -212,3 +212,22 @@
 .healthLink:hover {
   text-decoration: underline;
 }
+
+/* Effektiv norma izahı (ADR-008) */
+.normNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-13);
+}
+.normNote svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--brand-text);
+}

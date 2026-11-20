@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { AlertCircle, Ban, Flame, Inbox, Repeat, ShieldAlert, Zap } from 'lucide-react';
+import { AlertCircle, Ban, Flame, Inbox, Info, Repeat, ShieldAlert, Zap } from 'lucide-react';
 import { ACT_ADMIN, ACT_PROJECT } from '../../../shared/constants';
 import type { Filters } from '../../../shared/metrics';
 // Qrafiklər (ECharts) ayrıca chunk-da: hero və KPI-lar dərhal görünür, qrafiklər arxasınca (SPEC §11 — LCP)
@@ -134,6 +134,18 @@ export function DashboardPage() {
           </div>
         </div>
       </section>
+      {/* Effektiv norma izahı (ADR-008): rəhbərlik rəqəmlərin necə hesablandığını görsün */}
+      <p className={s.normNote} data-testid="norm-note">
+        <Info size={15} aria-hidden="true" />
+        <span>
+          {t('dash.normNote', {
+            gross: formatNumber(m.normGross),
+            vac: formatNumber(m.vacationHours),
+            days: formatNumber(m.vacationDays),
+            norm: formatNumber(m.norm),
+          })}
+        </span>
+      </p>
 
       <section className={s.kpis}>
         <Link to="/employees?level=critical" className={s.kpiLink}>

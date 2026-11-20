@@ -3,7 +3,7 @@
 // Saf funksiyalar — canlı dataya heç nə yazmır.
 import { ACT_ADMIN } from './constants.js';
 import { applyOpsLocal, type Snapshot } from './apply.js';
-import { computeMetrics, type Metrics } from './metrics.js';
+import { computeMetrics, effectiveNorm, type Metrics } from './metrics.js';
 import { curOwner, diffOps, normalizeTask, type EmployeeDoc, type TaskDoc } from './model.js';
 import type { RebalanceResult } from './rebalance.js';
 import type { ChangeKind, Op, ScenarioChange, ScenarioSummary } from './schema.js';
@@ -122,7 +122,7 @@ export function removeEmployeeIn(s: Snapshot, name: string, to = ''): Snapshot {
     let best = list[0];
     let bestLoad = Infinity;
     for (const e of list) {
-      const l = ((hours.get(e.name) ?? 0) + t.hours) / (s.settings.norm * e.fte);
+      const l = ((hours.get(e.name) ?? 0) + t.hours) / (effectiveNorm(s.settings) * e.fte);
       if (l < bestLoad - 1e-9 || (Math.abs(l - bestLoad) <= 1e-9 && e.name.localeCompare(best.name, 'az') < 0)) {
         best = e;
         bestLoad = l;

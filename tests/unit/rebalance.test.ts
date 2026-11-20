@@ -12,7 +12,7 @@ const seed = JSON.parse(readFileSync(new URL('../../data/seed.json', import.meta
 const input = () => ({
   tasks: seed.tasks.map(normalizeTask),
   employees: seed.employees.map(normalizeEmployee),
-  settings: { ...DEFAULT_SETTINGS },
+  settings: { ...DEFAULT_SETTINGS, vacation_days: 0 },
 });
 
 describe('rebalance — seed data', () => {
@@ -70,7 +70,7 @@ describe('rebalance — seed data', () => {
 
 describe('rebalance — çatışmazlıq', () => {
   it('qəbul edən yoxdursa qalıq saat = saat − θ × tutum', () => {
-    const settings = { ...DEFAULT_SETTINGS, norm: 100 };
+    const settings = { ...DEFAULT_SETTINGS, norm: 100, vacation_days: 0 };
     const tasks = [
       normalizeTask({ id: 'a', process: 'P', task: 'a', owner_before: 'Ali', hours: 90, company: 'Birbank' }),
       normalizeTask({ id: 'b', process: 'P', task: 'b', owner_before: 'Ali', hours: 60, company: 'Birbank' }),
@@ -84,7 +84,7 @@ describe('rebalance — çatışmazlıq', () => {
   });
 
   it('bərabərlikdə prosesi bilən, sonra ad üzrə seçilir', () => {
-    const settings = { ...DEFAULT_SETTINGS, norm: 100 };
+    const settings = { ...DEFAULT_SETTINGS, norm: 100, vacation_days: 0 };
     const tasks = [
       normalizeTask({ id: 'a', process: 'X', task: 'a', owner_before: 'Ali', hours: 120 }),
       normalizeTask({ id: 'b', process: 'X', task: 'b', owner_before: 'Zaur', hours: 10 }),

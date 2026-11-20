@@ -11,7 +11,7 @@ import { useCan } from '../../app/useCan';
 import { makeChange, transferIn } from '../../../shared/scenario';
 import { useMetrics } from '../../hooks/useMetrics';
 import { curOwner, taskLabel } from '../../../shared/model';
-import { levelOf } from '../../../shared/metrics';
+import { effectiveNorm, levelOf } from '../../../shared/metrics';
 import { fmtHours } from '../../../shared/format';
 import f from '../../components/Form.module.css';
 import s from './dialogs.module.css';
@@ -32,7 +32,7 @@ export function TransferDialog({ ids, onClose, onDone }: { ids: string[]; onClos
     const l = loads.get(name);
     if (l) return l.cap;
     const e = employees.find((x) => x.name === name);
-    return settings.norm * (e ? e.fte : 1);
+    return effectiveNorm(settings) * (e ? e.fte : 1);
   };
   const isGroup = (name: string) => !!employees.find((x) => x.name === name)?.is_group;
   const incoming = list.filter((x) => !x.is_cancelled && curOwner(x) !== to).reduce((a, x) => a + x.hours, 0);

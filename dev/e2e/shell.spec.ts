@@ -125,14 +125,18 @@ test('Panel: qızıl rəqəmlər (SPEC §13.2), görünüş açarı, sinxron və
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page);
   await expect(page.getByTestId('kpi-volume')).toHaveText('27\u202F850saat');
-  await expect(page.getByTestId('kpi-need')).toHaveText('14,5FTE');
+  await expect(page.getByTestId('kpi-need')).toHaveText('16,6FTE');
+  // Effektiv norma izahı (ADR-008): 1922 − 240 məzuniyyət = 1682
+  await expect(page.getByTestId('norm-note')).toContainText(
+    '1\u202F922 saat − 240 saat məzuniyyət (30 təqvim günü × 8 saat) = 1\u202F682 saat',
+  );
   await expect(page.getByTestId('kpi-have')).toHaveText('18,0FTE');
-  await expect(page.getByTestId('kpi-gap')).toContainText('+3,5');
-  await expect(page.getByTestId('kpi-over')).toHaveText('3nəfər');
+  await expect(page.getByTestId('kpi-gap')).toContainText('+1,4');
+  await expect(page.getByTestId('kpi-over')).toHaveText('7nəfər');
   await expect(page.getByTestId('kpi-cancelled')).toHaveText('933saat');
   await expect(page.getByTestId('kpi-transfers')).toHaveText('121');
   await expect(page.getByTestId('kpi-opt')).toHaveText('55saat');
-  await expect(page.getByText('Ülkər · 113%')).toBeVisible();
+  await expect(page.getByText('Ülkər · 129%')).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/v2-panel-1440.png` });
 
   await page.getByRole('button', { name: 'Optimizasiyadan sonra' }).click();

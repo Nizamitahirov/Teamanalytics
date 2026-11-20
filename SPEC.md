@@ -334,6 +334,7 @@ Notasiya: `T` = tapşırıqlar, `E` = əməkdaşlar, `cur(t) = t.owner_after || 
 
 7.1 **Effektiv saat:** `h(t, view)` = `view=opt && t.after_opt != null ? t.after_opt : t.hours`.
 7.2 **İllik iş həcmi:** `Σ h(t)` aktiv və filtrə uyğun `t` üzrə. Fəaliyyət forması filtri `activity(cur(t))` ilə.
+7.0 **Effektiv norma (ADR-008):** `N = norm(y) − vacation_days × 8` (default 30 gün; 2026: 1922 − 240 = 1682). Aşağıda `N` effektiv normadır.
 7.3 **Tutum (əməkdaş):** `cap(e) = N × fte(e) × (capacity_override(y) ?? 1) − Σ absence.hours(e, y)`; absences saatı verilməyibsə `iş günləri × 8`. Qrup (`is_group`) üçün tutum hesablanmır.
 7.4 **Yük:** `load(e) = Σ h(t) [cur(t)=e, active] / cap(e)`. Səviyyə: `> 1` kritik, `> warn` yüksək, `= 0` boş, digər normal.
 7.5 **Lazım olan FTE:** `Σ h(t) / N`. **Mövcud FTE:** `Σ fte(e)` aktiv işi olan, `!is_group`, `active` əməkdaşlar üzrə. **Ehtiyat:** `Mövcud − Lazım`.

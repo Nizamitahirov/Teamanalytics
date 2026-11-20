@@ -106,7 +106,7 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 | `tasks` | `id` (məs. `B-25`, `P-17`, `T-…`) | `id, company, process, category, task, description, owner_before, owner_after, min_per_key, annual_freq, unit, hours, after_opt, is_cancelled, updated_at, updated_by` + v2: `automation, automation_note, due_quarter, opt_before, opt_done_at, health_ignore` + sistem: `_ts`, `_deleted`, `_v` |
 | `employees` | `name` (dəqiq ad, məs. `Şöbə əməkdaşları`) | `name, company, activity, fte, is_group, active` + v2: `health_ignore` + `_ts`, `_deleted`, `_v` |
 | `log` | klientin yaratdığı `L-…` id | `ts, user, action, task_id, task_label, from, to, comment, group` + `_ts` (`group` — ssenari id-si) |
-| `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn`, `approval` (0/1), `approval_hours` (ayarlar) |
+| `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn`, `vacation_days` (default 30), `approval` (0/1), `approval_hours` (ayarlar) |
 | `scenarios` | `S-…` | `name, description, status (draft/pending/applied/archived), changes/summary/revert (JSON sətri), created_by/at, submitted_*, decided_*, decision_comment, applied_*, reverted_*` + `_ts`, `_deleted`, `_v` |
 | `notifications` | `N-…` | `to, kind, text, link, read, ts` + `_ts` — yalnız sahibinə göndərilir |
 | `users` | ad kiçik hərflə (`ecosystem`) | `name, salt, hash, iter, active, created_by, role, session_version, must_change_password, failed_attempts, locked_until, last_login` — heş/duz **heç vaxt klientə göndərilmir** |
@@ -123,8 +123,9 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 - **Ötürmə**: `owner_before` ilkin sahib kimi saxlanır (boşdursa cari sahib yazılır), `owner_after = yeni`. Yəni `owner_before` "baza bölgüsü"dür, ötürmə zənciri saxlanmır (yalnız jurnalda).
 - **Ləğv** silmək deyil: `is_cancelled = true`, istənilən vaxt bərpa olunur. Ləğv olunmuş saatlar "Ləğvdən qənaət"dir.
 - **Fəaliyyət forması** əməkdaşın profilindən gəlir (tapşırıqdan yox): `Administrativ` və ya `Project and AdHoc based`. İlkin qayda: Ağaəli, Aygül, İqrar, Aysel → Project and AdHoc based.
-- **Yük** = cari icraçının aktiv (ləğv olunmamış) tapşırıqlarının `hours` cəmi ÷ (`norm` × `fte`). Səviyyələr: `> 100%` norma aşılır (qırmızı), `> warn%` yüksək (sarı, default 85), `0` tapşırıq yoxdur, qalan normal (yaşıl).
-- **Lazım olan ştat (FTE)** = aktiv saat cəmi ÷ `norm`. **Mövcud ştat** = aktiv tapşırığı olan, qrup olmayan əməkdaşların `fte` cəmi.
+- **Effektiv norma** = `norm − vacation_days × 8` (məzuniyyət, default 30 gün → 2026: 1922 − 240 = **1682**; sahibin qərarı, ADR-008). Aşağıdakı bütün bölmələrdə "norma" = effektiv norma; Paneldə izahı göstərilir.
+- **Yük** = cari icraçının aktiv (ləğv olunmamış) tapşırıqlarının `hours` cəmi ÷ (effektiv norma × `fte`). Səviyyələr: `> 100%` norma aşılır (qırmızı), `> warn%` yüksək (sarı, default 85), `0` tapşırıq yoxdur, qalan normal (yaşıl).
+- **Lazım olan ştat (FTE)** = aktiv saat cəmi ÷ effektiv norma. **Mövcud ştat** = aktiv tapşırığı olan, qrup olmayan əməkdaşların `fte` cəmi.
 - **Qrup** (`is_group`, məs. "Şöbə əməkdaşları"): saatları cəmə daxildir, fərdi yük və mövcud ştat hesabına düşmür.
 - **Optimizasiya**: `after_opt` (saat) doludursa, "Optimizasiyadan sonra" rejimində `hours` əvəzinə istifadə olunur; potensial = `hours − after_opt`.
 - `hours` ilin cəmidir; mənbə cədvəlində `min_per_key × annual_freq / 60` ilə hesablanıb (formada avtomatik doldurulur, amma `hours` əl ilə də dəyişə bilər).

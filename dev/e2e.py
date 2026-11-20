@@ -62,6 +62,13 @@ async def main():
         # settings norm
         await pa.click('[data-view=settings]'); await pa.fill('#sNorm','1900'); await pa.click('#saveNormBtn'); await pa.wait_for_timeout(1200)
         print('meta:', {k:v for k,v in db()['docs']['meta/main'].items()})
+        # Məzuniyyət (ADR-008): effektiv norma = norma − gün × 8, ayarlarda saxlanır
+        assert db()['docs']['meta/main'].get('vacation_days') in (None, '30'), db()['docs']['meta/main']  # yoxdursa default 30
+        await pa.click('[data-view=dashboard]'); await pa.wait_for_timeout(300)
+        explain = await pa.inner_text('#normExplain'); label = await pa.inner_text('#normLabel')
+        print('norm label:', label, '|', explain)
+        assert '240' in explain and '30' in explain and label.replace('.', '').replace(',', '').replace(' ', '').replace('\u202f', '') == str(1900 - 240), (label, explain)
+        await pa.click('[data-view=settings]')
         await pa.fill('#sNorm','1922'); await pa.click('#saveNormBtn'); await pa.wait_for_timeout(1000)
         # export + import replace
         async with pa.expect_download() as d: await pa.click('#exportBtn')

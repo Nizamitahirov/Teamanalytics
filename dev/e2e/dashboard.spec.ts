@@ -58,7 +58,7 @@ test('bütün vidjetlər render olunur; cədvəl görünüşü qızıl rəqəml�
   const cap = widget(page, 'w-capacity');
   await cap.getByRole('button', { name: 'Cədvəl kimi bax' }).click();
   await expect(cap.getByRole('row', { name: /Mövcud ştat/ })).toContainText('18,00');
-  await expect(cap.getByRole('row', { name: /^Lazım olan/ })).toContainText('14,49');
+  await expect(cap.getByRole('row', { name: /^Lazım olan/ })).toContainText('16,56');
 
   // Yük cədvəli — normanı aşanlar yuxarıda
   const load = widget(page, 'w-load');
@@ -86,7 +86,7 @@ test('filtrlər URL-də və bütün vidjetlərə təsir edir; klik naviqasiyası
   // Normanı aşan KPI → əməkdaşlar (filtrlənmiş)
   await page.getByTestId('kpi-over').click();
   await expect(page).toHaveURL(/\/employees\?level=critical/);
-  await expect(page.locator('[data-emp]')).toHaveCount(3);
+  await expect(page.locator('[data-emp]')).toHaveCount(7);
 });
 
 test('tünd rejim və 1440/820/390 ekran şəkilləri', async ({ page }) => {

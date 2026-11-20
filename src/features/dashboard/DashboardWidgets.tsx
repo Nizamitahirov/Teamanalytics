@@ -29,7 +29,7 @@ import {
   waterfall,
   workTree,
 } from '../../../shared/dashboard';
-import { levelOf, type Filters, type Metrics, type View } from '../../../shared/metrics';
+import { effectiveNorm, levelOf, type Filters, type Metrics, type View } from '../../../shared/metrics';
 import { fmtFte, fmtHours, formatNumber } from '../../../shared/format';
 import { ACT_PROJECT } from '../../../shared/constants';
 import s from './DashboardWidgets.module.css';
@@ -57,7 +57,7 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
       sankey: sankeyOption(transferFlows(input, opts), (n) => levels.get(n) ?? 'idle', th, t),
       tree: treemapOption(workTree(input, opts), treeMode, th, t),
       heat: heatmapOption(loadHeatmap(input, m, opts), th, t),
-      wf: waterfallOption(waterfall(input, filters), settings.norm, th, t),
+      wf: waterfallOption(waterfall(input, filters), effectiveNorm(settings), th, t),
       pareto: paretoOption(pareto(m, input, opts), th, t),
       hist: histogramOption(loadHistogram(m), th, t),
     }),
