@@ -11,6 +11,7 @@ import { computeMetrics, type View } from '../../../shared/metrics';
 import { fmtFte, fmtHours, fmtPct, formatNumber } from '../../../shared/format';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
+import { BalanceButton } from '../scenarios/BalanceButton';
 import s from './DashboardPage.module.css';
 
 /**
@@ -177,6 +178,9 @@ export function DashboardPage() {
               {o.name} · {fmtPct(o.load)}
             </span>
           ))}
+          <span style={{ marginLeft: 'auto' }}>
+            <BalanceButton size="sm" />
+          </span>
         </div>
       )}
       <Suspense

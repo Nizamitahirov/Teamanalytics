@@ -88,6 +88,68 @@ function Account() {
   );
 }
 
+/** Təsdiq axını (SPEC §2, §6.10): aç/bağla + ötürmə həddi (saat). Default söndürülü (S1). */
+function Approval() {
+  const { t } = useI18n();
+  const { isAdmin } = useCan();
+  const settings = useData((st) => st.data.settings);
+  const [hours, setHours] = useState(String(settings.approval_hours));
+  const h = Number(hours.replace(',', '.'));
+  const save = (on: boolean, limit: number) => {
+    dataStore.getState().commit(
+      t('set.saved'),
+      (d) => {
+        d.settings.approval = on ? 1 : 0;
+        d.settings.approval_hours = limit;
+      },
+      [
+        {
+          action: 'Ayarlar',
+          task_label: on ? `Təsdiq axını açıldı (hədd ${formatNumber(limit)} saat)` : 'Təsdiq axını bağlandı',
+        },
+      ],
+    );
+    toast(t('set.saved'), { action: { label: t('top.undo'), fn: () => dataStore.getState().undoLast() } });
+  };
+  const on = settings.approval === 1;
+  return (
+    <fieldset className={f.full} style={{ border: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
+      <legend className={f.label}>{t('set.approval')}</legend>
+      <label className={f.check}>
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={!isAdmin}
+          onChange={(e) => save(e.target.checked, settings.approval_hours)}
+        />{' '}
+        {t('set.approvalOn')}
+      </label>
+      <div className={f.row} style={{ alignItems: 'end', gap: 8 }}>
+        <div className={f.field}>
+          <label className={f.label} htmlFor="set-appr-h">
+            {t('set.approvalHours')}
+          </label>
+          <input
+            id="set-appr-h"
+            className={f.input}
+            inputMode="decimal"
+            value={hours}
+            disabled={!isAdmin}
+            onChange={(e) => setHours(e.target.value)}
+            style={{ maxWidth: 140 }}
+          />
+        </div>
+        {isAdmin && (
+          <Button onClick={() => save(on, h)} disabled={!(h >= 0) || h === settings.approval_hours}>
+            {t('common.save')}
+          </Button>
+        )}
+      </div>
+      <span className={f.hint}>{t('set.approvalHint')}</span>
+    </fieldset>
+  );
+}
+
 function General() {
   const { t, lang, setLang } = useI18n();
   const { isAdmin } = useCan();
@@ -150,6 +212,7 @@ function General() {
           </div>
         )}
         {!isAdmin && <p className={`${f.hint} ${f.full}`}>{t('set.adminOnly')}</p>}
+        <Approval />
         <div className={f.field}>
           <label className={f.label} htmlFor="set-lang">
             {t('login.language')}

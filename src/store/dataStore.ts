@@ -49,6 +49,8 @@ export type DataStoreState = {
   undo: HistoryEntry[];
   redo: HistoryEntry[];
   conflicts: ClientConflict[];
+  /** Ssenari/bildiriş dəyişikliyinin server vaxtı (meta.scen_ts) — dəyişəndə ssenarilər yenidən oxunur */
+  scenTs: string | null;
   /** Yalnız baxış (viewer) — commit/undo/redo heç nə etmir (server də 403 qaytarır) */
   readOnly: boolean;
   setReadOnly(v: boolean): void;
@@ -71,6 +73,7 @@ const docId = (table: 'Tasks' | 'Employees', key: string) => `${table}/${key}`;
 type ServerData = {
   user?: string;
   ts?: string | null;
+  scen_ts?: string | null;
   unchanged?: boolean;
   delta?: boolean;
   full?: boolean;
@@ -250,6 +253,7 @@ export function createDataStore(deps: DataStoreDeps) {
       undo: [],
       redo: [],
       conflicts: [],
+      scenTs: null,
       readOnly: false,
       setReadOnly: (v) => set({ readOnly: v }),
 
@@ -271,6 +275,8 @@ export function createDataStore(deps: DataStoreDeps) {
           throw e;
         }
         if (d.user && d.user !== get().user) set({ user: d.user });
+        // Ssenarilər məlumat növbəsindən asılı deyil — həmişə yenilə
+        if (d.scen_ts !== undefined && d.scen_ts !== get().scenTs) set({ scenTs: d.scen_ts });
         // Göndərilməmiş dəyişiklik varsa serverdən gələni hələ tətbiq etmə (öz dəyişikliyimiz itməsin)
         if (get().queue.length || get().sending) return false;
         applyServerData(d);
@@ -465,6 +471,7 @@ export function createDataStore(deps: DataStoreDeps) {
           undo: [],
           redo: [],
           conflicts: [],
+          scenTs: null,
           status: 'loading',
         });
       },

@@ -15,6 +15,7 @@ import { fmtFte, fmtHours } from '../../../shared/format';
 import { matches } from '../../../shared/search';
 import type { MessageKey } from '../../../shared/i18n/az';
 import { EmployeeDialog } from './EmployeeDialog';
+import { BalanceButton } from '../scenarios/BalanceButton';
 import f from '../../components/Form.module.css';
 import s from './EmployeesPage.module.css';
 
@@ -128,6 +129,7 @@ export function EmployeesPage() {
             <List size={14} aria-hidden="true" /> {t('emp.table')}
           </button>
         </div>
+        <BalanceButton />
         {canEdit && (
           <Button variant="primary" onClick={() => setCreating(true)}>
             <Plus size={16} aria-hidden="true" /> {t('emp.new')}

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
-  Bell,
   Eye,
   LogOut,
   Monitor,
@@ -33,6 +32,7 @@ import { CommandPalette, SHORTCUTS } from '../features/palette/CommandPalette';
 import { useShortcuts } from '../features/palette/useShortcuts';
 import { useCan } from './useCan';
 import { EmployeeDialog } from '../features/employees/EmployeeDialog';
+import { NotificationsBell } from '../features/scenarios/NotificationsBell';
 import pal from '../features/palette/CommandPalette.module.css';
 import s from './Shell.module.css';
 
@@ -98,7 +98,6 @@ export function Shell({ me }: { me: MeResponse }) {
   };
 
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor;
-  const soon = t('top.soon');
   const initial = me.user.name.charAt(0).toUpperCase();
 
   const link = (n: (typeof NAV)[number]) => (
@@ -196,9 +195,7 @@ export function Shell({ me }: { me: MeResponse }) {
                 </IconButton>
               </>
             )}
-            <IconButton label={`${t('top.notifications')} — ${soon}`} aria-disabled="true">
-              <Bell size={18} aria-hidden="true" />
-            </IconButton>
+            <NotificationsBell />
             <IconButton label={`${t('top.theme')}: ${t(`theme.${theme}`)}`} onClick={cycle}>
               <ThemeIcon size={18} aria-hidden="true" />
             </IconButton>

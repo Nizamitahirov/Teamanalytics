@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
-import { AlertCircle, ArrowRight, ArrowRightLeft } from 'lucide-react';
+import { AlertCircle, ArrowRight, ArrowRightLeft, Send } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { useCan } from '../../app/useCan';
+import { scenStore } from '../../store/scenarios';
+import { transferChange } from '../../../shared/scenario';
 import { Modal } from '../../components/Modal';
 import { Button } from '../../components/Button';
 import { EmployeePicker } from '../../components/EmployeePicker';
@@ -25,6 +29,8 @@ export function TransferDialog({ ids, onClose, onDone }: { ids: string[]; onClos
   const moveH = list.filter((x) => !x.is_cancelled).reduce((a, x) => a + x.hours, 0);
   const [to, setTo] = useState('');
   const [comment, setComment] = useState('');
+  const { role } = useCan();
+  const navigate = useNavigate();
 
   const capOf = (name: string) => {
     const l = loads.get(name);
@@ -39,8 +45,30 @@ export function TransferDialog({ ids, onClose, onDone }: { ids: string[]; onClos
   const after = before + incoming;
   const ratio = (h: number, c: number) => (c > 0 ? h / c : h > 0 ? Infinity : 0);
 
+  // Təsdiq axını (SPEC §2): editor-un həddi aşan ötürməsi birbaşa yazılmır — ssenari kimi təsdiqə gedir
+  const needsApproval = role === 'editor' && settings.approval === 1 && incoming > settings.approval_hours;
+  const sendForApproval = async () => {
+    const d = dataStore.getState().data;
+    const live = { tasks: d.tasks, employees: d.employees, settings: d.settings };
+    const c = transferChange({ scen: live, live }, ids, to);
+    if (!c) return;
+    try {
+      const sc = scenStore.getState();
+      const id = await sc.create({ name: t('transfer.scenarioName', { to }), description: comment.trim(), changes: [c] });
+      await sc.action(id, 'submit', { comment: comment.trim() });
+      onClose();
+      onDone?.();
+      toast(t('transfer.sentForApproval'), {
+        action: { label: t('transfer.openScenario'), fn: () => navigate(`/scenarios/${id}`) },
+      });
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const submit = () => {
     if (!to) return;
+    if (needsApproval) return void sendForApproval();
     const n = actions.transferTasks(ids, to, comment.trim());
     onClose();
     onDone?.();
@@ -56,7 +84,15 @@ export function TransferDialog({ ids, onClose, onDone }: { ids: string[]; onClos
         <>
           <Button onClick={onClose}>{t('common.cancel')}</Button>
           <Button variant="primary" onClick={submit} disabled={!to}>
-            <ArrowRightLeft size={16} aria-hidden="true" /> {t('transfer.submit')}
+            {needsApproval ? (
+              <>
+                <Send size={16} aria-hidden="true" /> {t('scen.submit')}
+              </>
+            ) : (
+              <>
+                <ArrowRightLeft size={16} aria-hidden="true" /> {t('transfer.submit')}
+              </>
+            )}
           </Button>
         </>
       }
@@ -124,6 +160,13 @@ export function TransferDialog({ ids, onClose, onDone }: { ids: string[]; onClos
                   </div>
                 );
               })}
+            {needsApproval && (
+              <div className={s.row}>
+                <span className={s.muted}>
+                  {t('transfer.needsApproval', { h: fmtHours(incoming), limit: settings.approval_hours })}
+                </span>
+              </div>
+            )}
             {ratio(after, cap) > 1 && !isGroup(to) && (
               <div className={s.alert}>
                 <AlertCircle size={16} aria-hidden="true" /> {t('transfer.over', { to })}

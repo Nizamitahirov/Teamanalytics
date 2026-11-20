@@ -39,6 +39,9 @@
   --cat-5: #c2378a;
   --cat-6: #8a6a00;
   --company-birbank: #e30613;
+  /* "Əvvəl" / "İndi" seriyaları (CLAUDE.md §8): ssenari müqayisəsi */
+  --series-before: #a3a7b7;
+  --series-now: #f2501e;
 
   /* tipoqrafiya */
   --font: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -101,6 +104,8 @@
   --cat-5: #cc4f94;
   --cat-6: #a88312;
   --company-birbank: #ff4d57;
+  --series-before: #6b7085;
+  --series-now: #ec6430;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
   --good-text: #5fd88a;
   --warning-text: #fab219;
@@ -126,6 +131,8 @@
     --cat-5: #cc4f94;
     --cat-6: #a88312;
     --company-birbank: #ff4d57;
+    --series-before: #6b7085;
+    --series-now: #ec6430;
     --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
     --good-text: #5fd88a;
     --warning-text: #fab219;
