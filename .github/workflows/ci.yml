@@ -42,8 +42,8 @@ jobs:
           CI: '1'
 
       - name: E2E v1 (dev/e2e.py — v1 klienti yeni TS serverə qarşı)
-        # Mərhələ 9-dan bəri bu addım wait-on-da ilişib qalırdı (ehtimal: `localhost` → ::1 / IPv6) və iş 20 dəq-dən sonra ləğv olunurdu.
-        # İndi 127.0.0.1, 60 s limit və uğursuzluqda server logu çap olunur.
+        # Mərhələ 9-dan bəri bu addım ilişib qalırdı: wait-on HEAD sorğusu göndərir, /api/health isə HEAD-ə 405 qaytarırdı
+        # (düzəldildi). Yenə ilişərsə: 60 s limit, addım limiti və server logu çap olunur.
         timeout-minutes: 8
         run: |
           pip install openpyxl playwright==$(node -p "require('@playwright/test/package.json').version")
