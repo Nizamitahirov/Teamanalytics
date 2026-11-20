@@ -80,8 +80,8 @@ describe('giriş', () => {
   it('ilk giriş Ecosystem istifadəçisini yaradır, cookie qaytarır', async () => {
     const r = await login();
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ ok: true, user: 'Ecosystem' });
-    expect(cookie).toMatch(/^wfp_session=/);
+    expect(r.body).toEqual({ ok: true, user: 'Ecosystem', role: 'admin', mustChange: true });
+    expect(cookie).toMatch(/^__Host-wfp_session=/);
     expect(r.headers.get('set-cookie')).toMatch(/HttpOnly; Secure; SameSite=Lax/);
     expect(doc('users/ecosystem')).toMatchObject({ name: 'Ecosystem', active: true, created_by: 'system' });
   });
@@ -204,13 +204,17 @@ describe('istifadəçilər', () => {
   });
 
   it('əlavə et → giriş → parol dəyiş → sil', async () => {
-    expect((await api('/api/users', { json: { action: 'add', name: 'Test', password: '123' } })).body.code).toBe('weak_password');
-    expect((await api('/api/users', { json: { action: 'add', name: 'Test', password: 'parol123' } })).status).toBe(200);
-    expect((await api('/api/users', { json: { action: 'add', name: 'test', password: 'parol123' } })).status).toBe(409);
+    expect((await api('/api/users', { json: { action: 'add', name: 'Test', password: '123' } })).body.code).toBe(
+      'weak_password_too_short',
+    );
+    expect((await api('/api/users', { json: { action: 'add', name: 'Test', password: 'Gizli-Soz-2026!' } })).status).toBe(200);
+    expect((await api('/api/users', { json: { action: 'add', name: 'test', password: 'Gizli-Soz-2026!' } })).status).toBe(409);
     // rol kimi əlavə sahə parol dəyişəndə qorunmalıdır
     const key = 'projects/demo/databases/(default)/documents/users/test';
     fsMock.docs.set(key, { ...fsMock.docs.get(key), role: { stringValue: 'viewer' } });
-    expect((await api('/api/users', { json: { action: 'password', name: 'Test', password: 'yeni-parol' } })).status).toBe(200);
+    expect((await api('/api/users', { json: { action: 'password', name: 'Test', password: 'Yeni-Gizli-Soz-7' } })).status).toBe(
+      200,
+    );
     expect(doc('users/test').role).toBe('viewer');
     const list = await api('/api/users');
     expect(list.body.users.map((u: { id: string }) => u.id).sort()).toEqual(['ecosystem', 'test']);

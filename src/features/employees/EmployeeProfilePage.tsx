@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRightLeft, Pencil, Plus, UserX, Users } from 'lucide-re
 import { useI18n } from '../../lib/i18n';
 import { useData } from '../../store';
 import { useMetrics } from '../../hooks/useMetrics';
+import { useCan } from '../../app/useCan';
 import { Button } from '../../components/Button';
 import { CompanyBadge, LoadBar, LoadChip } from '../../components/Badges';
 import { EmptyState } from '../../components/EmptyState';
@@ -32,6 +33,7 @@ export function EmployeeProfilePage() {
   const tasks = useData((st) => st.data.tasks);
   const log = useData((st) => st.data.log);
   const { loads, settings } = useMetrics();
+  const { canEdit } = useCan();
   const [tab, setTab] = useState<'current' | 'given'>('current');
   const [sorting, setSorting] = useState<SortingState>([{ id: 'hours', desc: true }]);
   const [selection, setSelection] = useState<RowSelectionState>({});
@@ -118,19 +120,21 @@ export function EmployeeProfilePage() {
             {!emp && <span>· {t('emp.unknown')}</span>}
           </div>
         </div>
-        <div className={s.actions}>
-          <Button onClick={() => setTask('new')}>
-            <Plus size={16} aria-hidden="true" /> {t('task.new')}
-          </Button>
-          <Button onClick={() => setDialog({ kind: 'transfer', ids: activeIds })} disabled={!activeIds.length}>
-            <ArrowRightLeft size={16} aria-hidden="true" /> {t('emp.transferAll')}
-          </Button>
-          {emp && (
-            <Button variant="primary" onClick={() => setDialog({ kind: 'edit', ids: [] })}>
-              <Pencil size={16} aria-hidden="true" /> {t('emp.edit')}
+        {canEdit && (
+          <div className={s.actions}>
+            <Button onClick={() => setTask('new')}>
+              <Plus size={16} aria-hidden="true" /> {t('task.new')}
             </Button>
-          )}
-        </div>
+            <Button onClick={() => setDialog({ kind: 'transfer', ids: activeIds })} disabled={!activeIds.length}>
+              <ArrowRightLeft size={16} aria-hidden="true" /> {t('emp.transferAll')}
+            </Button>
+            {emp && (
+              <Button variant="primary" onClick={() => setDialog({ kind: 'edit', ids: [] })}>
+                <Pencil size={16} aria-hidden="true" /> {t('emp.edit')}
+              </Button>
+            )}
+          </div>
+        )}
       </header>
 
       <div className={s.cols}>
@@ -197,6 +201,7 @@ export function EmployeeProfilePage() {
         </button>
       </div>
       <TaskTable
+        readOnly={!canEdit}
         rows={rows}
         sorting={sorting}
         onSortingChange={setSorting}

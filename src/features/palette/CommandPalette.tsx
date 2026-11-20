@@ -20,11 +20,14 @@ export function CommandPalette({
   onTheme,
   onShortcuts,
   onNewEmployee,
+  canEdit = true,
 }: {
   onClose: () => void;
   onTheme: () => void;
   onShortcuts: () => void;
   onNewEmployee: () => void;
+  /** Yalnız baxış rolunda dəyişiklik əməliyyatları göstərilmir */
+  canEdit?: boolean;
 }) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -74,7 +77,9 @@ export function CommandPalette({
         run: go(n.path),
       })),
     ];
-    const scored: Item[] = commands.map((c) => ({ ...c, score: score(c.label, q) })).filter((c) => c.score > 0);
+    const EDIT = new Set(['new-task', 'new-emp', 'undo', 'redo']);
+    const allowed = canEdit ? commands : commands.filter((c) => !EDIT.has(c.id));
+    const scored: Item[] = allowed.map((c) => ({ ...c, score: score(c.label, q) })).filter((c) => c.score > 0);
     if (q.trim()) {
       const emps = employees
         .map((e) => ({ e, sc: score(e.name, q) }))
@@ -114,7 +119,7 @@ export function CommandPalette({
       return [...emps, ...ts, ...scored.sort((a, b) => b.score - a.score)];
     }
     return scored;
-  }, [q, tasks, employees, t, navigate, onClose, onTheme, onShortcuts, onNewEmployee]);
+  }, [q, tasks, employees, t, navigate, onClose, onTheme, onShortcuts, onNewEmployee, canEdit]);
 
   useEffect(() => {
     listRef.current?.querySelector(`[data-i="${active}"]`)?.scrollIntoView({ block: 'nearest' });

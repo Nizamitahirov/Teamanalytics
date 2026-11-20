@@ -6,6 +6,7 @@ import { EmployeePicker } from '../../components/EmployeePicker';
 import { CompanyBadge, StatusBadge } from '../../components/Badges';
 import { Modal } from '../../components/Modal';
 import { useI18n } from '../../lib/i18n';
+import { useCan } from '../../app/useCan';
 import { toast } from '../../lib/toast';
 import { actions, dataStore, useData } from '../../store';
 import { curOwner, statusOf, type TaskDoc } from '../../../shared/model';
@@ -45,6 +46,7 @@ export function TaskDrawer({
   const log = useData((st) => st.data.log);
   const task = id === 'new' ? null : (tasks.find((x) => x.id === id) ?? null);
   const isNew = id === 'new';
+  const { canEdit } = useCan();
 
   const [v, setV] = useState(() => ({
     company: task?.company ?? preset?.company ?? 'Birbank',
@@ -158,46 +160,50 @@ export function TaskDrawer({
         onClose={onClose}
         closeLabel={t('common.close')}
         footer={
-          <>
-            {task && (
-              <>
-                <Button variant="ghost" onClick={() => setDialog('delete')}>
-                  <Trash2 size={16} aria-hidden="true" /> {t('task.delete')}
-                </Button>
-                {task.is_cancelled ? (
-                  <Button
-                    variant="success"
-                    onClick={() => {
-                      actions.setCancelled([task.id], false);
-                      toast(t('toast.restored', { n: 1 }), {
-                        action: { label: t('top.undo'), fn: () => dataStore.getState().undoLast() },
-                      });
-                    }}
-                  >
-                    <RotateCcw size={16} aria-hidden="true" /> {t('task.restore')}
+          canEdit ? (
+            <>
+              {task && (
+                <>
+                  <Button variant="ghost" onClick={() => setDialog('delete')}>
+                    <Trash2 size={16} aria-hidden="true" /> {t('task.delete')}
                   </Button>
-                ) : (
-                  <Button variant="danger" onClick={() => setDialog('cancel')}>
-                    <Ban size={16} aria-hidden="true" /> {t('task.cancel')}
+                  {task.is_cancelled ? (
+                    <Button
+                      variant="success"
+                      onClick={() => {
+                        actions.setCancelled([task.id], false);
+                        toast(t('toast.restored', { n: 1 }), {
+                          action: { label: t('top.undo'), fn: () => dataStore.getState().undoLast() },
+                        });
+                      }}
+                    >
+                      <RotateCcw size={16} aria-hidden="true" /> {t('task.restore')}
+                    </Button>
+                  ) : (
+                    <Button variant="danger" onClick={() => setDialog('cancel')}>
+                      <Ban size={16} aria-hidden="true" /> {t('task.cancel')}
+                    </Button>
+                  )}
+                  <Button onClick={() => setDialog('transfer')}>
+                    <ArrowRightLeft size={16} aria-hidden="true" /> {t('task.transfer')}
                   </Button>
-                )}
-                <Button onClick={() => setDialog('transfer')}>
-                  <ArrowRightLeft size={16} aria-hidden="true" /> {t('task.transfer')}
-                </Button>
-              </>
-            )}
-            <span className={s.spacer} />
-            <Button variant="primary" onClick={save}>
-              <Save size={16} aria-hidden="true" /> {t('common.save')}
-            </Button>
-          </>
+                </>
+              )}
+              <span className={s.spacer} />
+              <Button variant="primary" onClick={save}>
+                <Save size={16} aria-hidden="true" /> {t('common.save')}
+              </Button>
+            </>
+          ) : undefined
         }
       >
         <form
           className={f.grid}
+          // Yalnız baxış rolunda sahələr dəyişdirilə bilmir
+          inert={!canEdit || undefined}
           onSubmit={(e) => {
             e.preventDefault();
-            save();
+            if (canEdit) save();
           }}
         >
           <div className={`${f.field} ${f.full}`}>

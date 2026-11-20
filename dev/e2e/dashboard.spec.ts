@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { ADMIN_PW, freshDb } from './helpers.js';
 
 // Mərhələ 4 QM: Panel vidjetləri (SPEC §6.2), "Cədvəl kimi bax" eyni rəqəmlər, tünd rejim, a11y (axe 0 ciddi).
 // Təmiz baza ilə işləyir (mock reset).
@@ -8,7 +9,7 @@ const SHOTS = 'dev/e2e-shots';
 async function login(page: Page) {
   await page.goto('/login');
   await page.getByLabel('İstifadəçi adı').fill('Ecosystem');
-  await page.getByLabel('Parol', { exact: true }).fill('Ecosystem');
+  await page.getByLabel('Parol', { exact: true }).fill(ADMIN_PW);
   await page.getByRole('button', { name: 'Daxil ol' }).click();
   await expect(page.getByTestId('kpi-volume')).toBeVisible();
 }
@@ -16,7 +17,7 @@ const widget = (page: Page, id: string) => page.getByTestId(id);
 
 let consoleErrors: string[] = [];
 test.beforeAll(async () => {
-  await fetch('http://localhost:8791/reset', { method: 'POST' });
+  await freshDb();
 });
 test.beforeEach(async ({ page }) => {
   consoleErrors = [];

@@ -43,10 +43,10 @@ async def main():
         # user B sees it
         await pa.keyboard.press('Escape'); await pa.wait_for_timeout(300)
         await pa.click('[data-view=settings]'); await pa.wait_for_timeout(800)
-        await pa.click('#addUserBtn'); await pa.fill('#usName','Aysel'); await pa.fill('#usPass','Parol456'); await pa.click('#modalFoot .btn-primary'); await pa.wait_for_timeout(1200)
+        await pa.click('#addUserBtn'); await pa.fill('#usName','Aysel'); await pa.fill('#usPass','Gizli-Soz-2026!'); await pa.click('#modalFoot .btn-primary'); await pa.wait_for_timeout(1200)
         print('users:', (await pa.inner_text('#userList')).replace('\n',' | ')[:120])
         await pa.screenshot(path=OUT+'/7-settings.png')
-        B=await ctx_new(b); pb=await B.new_page(); await login(pb,'aysel','Parol456')
+        B=await ctx_new(b); pb=await B.new_page(); await login(pb,'aysel','Gizli-Soz-2026!')
         await pb.click('[data-view=tasks]'); await pb.fill('#tSearch','Kəsişmələrin yoxlanılması'); await pb.wait_for_timeout(300)
         print('B sees owner:', (await pb.inner_text('#taskTable'))[:300].replace('\n',' | '))
         # B cancels a task; A polls

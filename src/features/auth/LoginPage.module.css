@@ -204,3 +204,17 @@
   font-size: var(--fs-12);
   text-align: center;
 }
+.remember {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-1) 0 var(--sp-2);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: var(--fs-14);
+  cursor: pointer;
+}
+.remember input {
+  width: 18px;
+  height: 18px;
+  accent-color: #ff6b17;
+}

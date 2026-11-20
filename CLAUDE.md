@@ -25,8 +25,9 @@ public/                 v1 klienti (dəyişməz; Mərhələ 10-da legacy/ olacaq
 api/                    Vercel funksiyaları (TS, ince adapterlər) — login, logout, me, data, ops, log, users, health
 server/                 Server məntiqi (Vercel-dən asılı deyil, testlənir)
   firestore.ts          Firestore REST klienti; upsert = updateMask, `_v` increment, tranzaksiya + resolveVersions (ziddiyyət)
-  auth.ts               PBKDF2 parol, HMAC imzalı sessiya cookie-si
-  http.ts               requireUser, send/sendError ({error, code}), parseBody (Zod), fail
+  auth.ts               PBKDF2 parol, sessiya (__Host- cookie, sv), Firestore kilidi, parol siyasəti, rollar, ip_hash
+  http.ts               requireUser(minRole) — RBAC + CSRF + limit; send/sendError ({error, code}), parseBody (Zod)
+  commonPasswords.ts    Ən çox yayılmış 1000 parol (generasiya olunub, mənbə faylda)
 shared/                 Həm server, həm klient
   constants.ts          Sabitlər (Zod-suz — klient bundle-ı üçün)
   schema.ts             Zod: Task, Employee, LogEntry, Settings, Role, Op (+ v, base), OpsBody, Conflict, OpsResponse
@@ -39,9 +40,9 @@ shared/                 Həm server, həm klient
   i18n/az.ts en.ts      Mətnlər (tip-təhlükəsiz açarlar)
   version.ts            APP_VERSION (/api/health, UI)
 src/                    v2 React klienti (Vite, React 19, React Router, CSS Modules, Lucide)
-  app/                  router, Shell (sol menyu / aşağı naviqasiya, üst panel), auth konteksti, nav
+  app/                  router, Shell (sol menyu / aşağı naviqasiya, üst panel), auth konteksti, useCan (rol), nav
   store/                dataStore (Zustand+immer: commit/undo/redo/pull/flush/ziddiyyət), actions (ötür/ləğv/düzəliş/birləşdir), persist (IndexedDB), useSyncLoop
-  features/             auth, dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), log, palette (Ctrl+K, qısayollar), sync, placeholder
+  features/             auth (giriş, məcburi parol), settings (hesab, ümumi, istifadəçilər), dashboard, tasks (cədvəl, panel, ötürmə/ləğv dialoqları), employees (siyahı, profil, dialoq), log, palette (Ctrl+K, qısayollar), sync, placeholder
   components/           Button, IconButton, Modal, Drawer, Toaster, EmployeePicker (combobox), Badges, Form.module.css, EmptyState, Skeleton
   charts/               ECharts (modul, SVG renderer), theme.ts (açıq/tünd), options/*.ts (saf: data → option + cədvəl + xülasə), ChartFrame
   hooks/                useFocusTrap, useMedia, useMetrics
@@ -87,7 +88,7 @@ npm run ci         # typecheck + lint + format + test + build
 |---|---|---|
 | `FIREBASE_SERVICE_ACCOUNT` | **bəli** | Service account JSON-un bütün məzmunu. Ad hərf/boşluq fərqinə dözümlüdür; `_JSON`, `_KEY` variantları və base64 da qəbul olunur (`lib/firestore.js → findServiceAccountVar`). |
 | `FIRESTORE_DATABASE` | yox | Baza ID-si `(default)` deyilsə |
-| `AUTH_SECRET` | yox | Sessiya HMAC açarı; yoxdursa service account açarından törədilir (SHA-256) |
+| `AUTH_SECRET` | yox | Sessiya HMAC açarı və ip_hash duzu; yoxdursa service account açarından törədilir (SHA-256). Dəyişsə bütün sessiyalar bağlanır |
 
 Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç vaxt repo-ya yazma** (repo public-dir; Google sızan açarları avtomatik bloklayır). Dəyişən əlavə/dəyişdirildikdən sonra **Redeploy** lazımdır. Problem olduqda əvvəlcə `https://teamanalytics.vercel.app/api/health`-ə bax.
 
@@ -101,7 +102,7 @@ Hal-hazırda Vercel-də yalnız `FIREBASE_SERVICE_ACCOUNT` var. **Açarı heç v
 | `employees` | `name` (dəqiq ad, məs. `Şöbə əməkdaşları`) | `name, company, activity, fte, is_group, active` + `_ts`, `_deleted`, `_v` |
 | `log` | klientin yaratdığı `L-…` id | `ts, user, action, task_id, task_label, from, to, comment` + `_ts` |
 | `meta/main` | tək sənəd | `updated` (son commit vaxtı), `norm`, `warn` (ayarlar) |
-| `users` | ad kiçik hərflə (`ecosystem`) | `name, salt, hash, iter, active, created_by` — **heç vaxt klientə göndərilmir** |
+| `users` | ad kiçik hərflə (`ecosystem`) | `name, salt, hash, iter, active, created_by, role, session_version, must_change_password, failed_attempts, locked_until, last_login` — heş/duz **heç vaxt klientə göndərilmir** |
 
 - `_ts`: hər yazmada server vaxtı (`REQUEST_TIME` transform). Delta sinxronun əsası.
 - `_v`: versiya — hər yazmada server `increment` ilə artırır (v1 yazmaları da); v2 klienti ziddiyyəti bununla aşkarlayır (ADR-002). `_v`-siz köhnə sənəd = 0.
@@ -139,10 +140,14 @@ Qadağalar:
 
 ## 7. Təhlükəsizlik
 
-- Sessiya: `wfp_session` HttpOnly, Secure, SameSite=Lax cookie, 12 saat, HMAC-SHA256. İstifadəçi silinsə də cari sessiya müddəti bitənə qədər qalır (texniki borc).
-- Parol: PBKDF2-SHA256, 100 000 iterasiya, 16 bayt salt. `Ecosystem` istifadəçisinin yalnız heşi kodda var (`BOOTSTRAP`), `users` kolleksiyası boş olanda ilk girişdə yaradılır.
-- Login: IP başına 10 yanlış cəhd / 10 dəq (funksiya instansiyasının yaddaşında — tam qoruma deyil).
-- Bütün HTML render `esc()`-dən keçir. Yeni render kodu da keçməlidir (data istifadəçi tərəfindən daxil edilir).
+Ətraflı: `docs/ADR-005-security.md`.
+- **Rollar** (SPEC §2): `admin` (hər şey, istifadəçilər, ayarlar), `editor` (`POST /api/ops`), `viewer` (yalnız oxuma). Server hər sorğuda yoxlayır (`requireUser(req, res, minRole)`); rol yoxdursa admin. Sonuncu aktiv admini silmək/endirmək qadağandır.
+- **Sessiya:** `__Host-wfp_session` (Secure, HttpOnly, SameSite=Lax), HMAC-SHA256, 12 saat (və ya "Məni xatırla" 7 gün); `sv` ≠ `users.session_version` → 401 (parol dəyişmə, sıfırlama, ləğv, silmə). Köhnə `wfp_session` keçid dövründə qəbul olunur.
+- **Parol:** PBKDF2-SHA256, 100 000 iterasiya; siyasət ≥ 10 simvol + 1000 yayılmış parol + ad. `Ecosystem` yalnız heş kimi kodda (`BOOTSTRAP`); ilkin parolla giriş → `mustChange` (v2 klienti məcbur edir; server keçid dövründə məcbur etmir — v1 sınmasın).
+- **Kilid:** 5 yanlış cəhd → 15 dəq (Firestore, 423 + vaxt); IP limiti əlavə qat. Yanlış ad/parol eyni cavab.
+- **CSRF:** POST-larda `Sec-Fetch-Site`/`Origin` yoxlanır. **Limit:** 300 sorğu/dəq/istifadəçi. **Audit:** jurnalda `ip_hash`.
+- **Başlıqlar:** HSTS, Permissions-Policy, X-Frame-Options, nosniff, Referrer-Policy (vercel.json). Ciddi CSP yalnız v2 build-ində (meta) — v1 `login.html` inline skript işlədir.
+- v1-də bütün HTML render `esc()`-dən keçir; v2-də React escaping (heç vaxt `dangerouslySetInnerHTML`).
 - Repo public-dir: sirr, şəxsi məlumat, real parol commit etmə.
 
 ## 8. Dizayn sistemi
@@ -167,7 +172,6 @@ Qadağalar:
 - Vizual etalonlar Linux Chromium-da çəkilib; başqa platformada fərqlənə bilər.
 - Tombstone-lar və jurnal sonsuz böyüyür; arxivləmə yoxdur.
 - ~~`applyOps` upsert-də tam sənədi əvəz edir~~ — **Mərhələ 1-də düzəldilib** (`updateMask`, SPEC §15.3; test: `tests/server/api.test.ts`).
-- Rollar yoxdur: hər istifadəçi hər şeyi edə, istifadəçi silə bilər.
 - Tarixi snapshot yoxdur → trend qrafikləri mümkün deyil.
 - Data keyfiyyəti: ad dublikatları (Farida/Fəridə, Kamila/Kamilə), təkrar sətir (`B-1770271295121` = `B-44`), id-siz sətir (`P-x71`), `P-29`-da saat uyğunsuzluğu — ətraflı `docs/CONTEXT.md`.
 - Bütün bunlar `SPEC.md`-də həll olunur.

@@ -335,13 +335,18 @@ const opKey = (op: Op): string | null => {
 };
 
 /** Op-ları Firestore yazılarına çevirir (saf funksiya — testlənir). */
-export function buildWrites(ops: Op[], user: string, now = new Date().toISOString()): FsWrite[] {
+export function buildWrites(
+  ops: Op[],
+  user: string,
+  now = new Date().toISOString(),
+  audit: Record<string, string> = {},
+): FsWrite[] {
   const writes: FsWrite[] = [];
   const settings: Record<string, number> = {};
   for (const op of ops) {
     if (op.t === 'log') {
       const id = String(op.row.id || crypto.randomUUID()).replace(/\//g, '_');
-      const row: Record<string, unknown> = { ...op.row, user, ts: op.row.ts || now };
+      const row: Record<string, unknown> = { ...op.row, ...audit, user, ts: op.row.ts || now };
       delete row.id;
       writes.push({ update: { name: docName('log', id), fields: toFields(row) }, updateTransforms: stamp });
       continue;
@@ -444,11 +449,12 @@ export type ApplyResult = { versions: Record<string, number>; conflicts: Conflic
  * (Zod ilə yoxlanmış — shared/schema.ts → OpSchema)
  * Versiyalı op varsa: tranzaksiya → batchGet (dəyişən sənəd sayı qədər oxuma) → resolveVersions → commit.
  */
-export async function applyOps(ops: Op[], user: string): Promise<ApplyResult> {
+/** `audit` — jurnal qeydlərinə əlavə olunan sahələr (məs. ip_hash, SPEC §10). */
+export async function applyOps(ops: Op[], user: string, audit: Record<string, string> = {}): Promise<ApplyResult> {
   type VOp = Extract<Op, { v?: number }>;
   const versioned = ops.filter((op): op is VOp => op.t !== 'log' && op.table !== 'Settings' && 'v' in op && op.v !== undefined);
   if (!versioned.length) {
-    const writes = buildWrites(ops, user);
+    const writes = buildWrites(ops, user, undefined, audit);
     if (writes.length) await commit(writes);
     return { versions: {}, conflicts: [] };
   }
@@ -473,7 +479,7 @@ export async function applyOps(ops: Op[], user: string): Promise<ApplyResult> {
       for (const r of got) if (r.found) byName.set(r.found.name, fromDoc(r.found));
       const current = new Map(ids.map((id, i) => [id, byName.get(names[i]) ?? null]));
       const res = resolveVersions(ordered, current);
-      const writes = buildWrites(res.accepted, user);
+      const writes = buildWrites(res.accepted, user, undefined, audit);
       if (writes.length) await commit(writes, transaction);
       else await fs(`${docsRoot()}:rollback`, { method: 'POST', body: { transaction } });
       return { versions: res.versions, conflicts: res.conflicts };
@@ -521,6 +527,11 @@ export async function listUsers() {
     name: (u.name as string) || u._id,
     active: u.active !== false,
     created_by: (u.created_by as string) || '',
+    // Rol yoxdursa admin (SPEC §2 miqrasiya qaydası)
+    role: (u.role === 'viewer' || u.role === 'editor' || u.role === 'admin' ? u.role : 'admin') as 'admin' | 'editor' | 'viewer',
+    last_login: (u.last_login as string) || null,
+    locked_until: (u.locked_until as string) || null,
+    must_change_password: u.must_change_password === true,
   }));
 }
 /** İstifadəçi sənədini yazır. Yalnız verilən sahələr yazılır (məs. gələcək `role` sahəsi qorunur). */

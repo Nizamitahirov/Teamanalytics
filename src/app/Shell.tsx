@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   Bell,
+  Eye,
   LogOut,
   Monitor,
   Moon,
@@ -30,6 +31,7 @@ import { Modal } from '../components/Modal';
 import { Button } from '../components/Button';
 import { CommandPalette, SHORTCUTS } from '../features/palette/CommandPalette';
 import { useShortcuts } from '../features/palette/useShortcuts';
+import { useCan } from './useCan';
 import { EmployeeDialog } from '../features/employees/EmployeeDialog';
 import pal from '../features/palette/CommandPalette.module.css';
 import s from './Shell.module.css';
@@ -51,12 +53,17 @@ export function Shell({ me }: { me: MeResponse }) {
     await authLogout();
   }, [authLogout]);
   const { theme, cycle } = useTheme();
+  const { canEdit } = useCan();
+  // Yalnız baxış rolu: store yazmaları bloklayır (müdafiə qatı — server də 403 qaytarır)
+  useEffect(() => {
+    dataStore.getState().setReadOnly(!canEdit);
+  }, [canEdit]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [newEmp, setNewEmp] = useState(false);
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const openHelp = useCallback(() => setHelpOpen(true), []);
-  useShortcuts({ openPalette, openHelp, blocked: paletteOpen || helpOpen });
+  useShortcuts({ openPalette, openHelp, blocked: paletteOpen || helpOpen, canEdit });
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => storage.get(COLLAPSE_KEY) === '1');
   const [moreOpen, setMoreOpen] = useState(false);
@@ -169,22 +176,26 @@ export function Shell({ me }: { me: MeResponse }) {
               <span>{t('top.search')}</span>
               <kbd>Ctrl K</kbd>
             </button>
-            <IconButton
-              label={undoTop ? t('top.undoWith', { label: undoTop }) : t('top.nothingUndo')}
-              disabled={!undoTop}
-              onClick={() => dataStore.getState().undoLast()}
-              className={s.hideSm}
-            >
-              <Undo2 size={18} aria-hidden="true" />
-            </IconButton>
-            <IconButton
-              label={redoTop ? t('top.redoWith', { label: redoTop }) : t('top.nothingRedo')}
-              disabled={!redoTop}
-              onClick={() => dataStore.getState().redoLast()}
-              className={s.hideSm}
-            >
-              <Redo2 size={18} aria-hidden="true" />
-            </IconButton>
+            {canEdit && (
+              <>
+                <IconButton
+                  label={undoTop ? t('top.undoWith', { label: undoTop }) : t('top.nothingUndo')}
+                  disabled={!undoTop}
+                  onClick={() => dataStore.getState().undoLast()}
+                  className={s.hideSm}
+                >
+                  <Undo2 size={18} aria-hidden="true" />
+                </IconButton>
+                <IconButton
+                  label={redoTop ? t('top.redoWith', { label: redoTop }) : t('top.nothingRedo')}
+                  disabled={!redoTop}
+                  onClick={() => dataStore.getState().redoLast()}
+                  className={s.hideSm}
+                >
+                  <Redo2 size={18} aria-hidden="true" />
+                </IconButton>
+              </>
+            )}
             <IconButton label={`${t('top.notifications')} — ${soon}`} aria-disabled="true">
               <Bell size={18} aria-hidden="true" />
             </IconButton>
@@ -195,6 +206,11 @@ export function Shell({ me }: { me: MeResponse }) {
         </header>
 
         <main id="main" ref={mainRef} tabIndex={-1} className={s.content}>
+          {!canEdit && (
+            <p className={s.readOnly} role="note">
+              <Eye size={16} aria-hidden="true" /> {t('role.viewerNote')}
+            </p>
+          )}
           <Outlet />
         </main>
       </div>
@@ -238,6 +254,7 @@ export function Shell({ me }: { me: MeResponse }) {
           onTheme={cycle}
           onShortcuts={openHelp}
           onNewEmployee={() => setNewEmp(true)}
+          canEdit={canEdit}
         />
       )}
       {newEmp && <EmployeeDialog name={null} onClose={() => setNewEmp(false)} />}

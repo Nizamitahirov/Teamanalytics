@@ -5,6 +5,7 @@ import { useI18n } from '../../lib/i18n';
 import { storage } from '../../lib/storage';
 import { useData } from '../../store';
 import { useMetrics } from '../../hooks/useMetrics';
+import { useCan } from '../../app/useCan';
 import { Button } from '../../components/Button';
 import { CompanyBadge, LoadBar, LoadChip } from '../../components/Badges';
 import { Skeleton } from '../../components/Skeleton';
@@ -27,6 +28,7 @@ export function EmployeesPage() {
   const ready = useData((st) => st.ready);
   const employees = useData((st) => st.data.employees);
   const { loads, settings } = useMetrics();
+  const { canEdit } = useCan();
   const [view, setView] = useState<'cards' | 'table'>(() => (storage.get(VIEW_KEY) === 'table' ? 'table' : 'cards'));
   const [creating, setCreating] = useState(false);
   const q = params.get('q') ?? '';
@@ -126,9 +128,11 @@ export function EmployeesPage() {
             <List size={14} aria-hidden="true" /> {t('emp.table')}
           </button>
         </div>
-        <Button variant="primary" onClick={() => setCreating(true)}>
-          <Plus size={16} aria-hidden="true" /> {t('emp.new')}
-        </Button>
+        {canEdit && (
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            <Plus size={16} aria-hidden="true" /> {t('emp.new')}
+          </Button>
+        )}
       </div>
 
       {!rows.length ? (

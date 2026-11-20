@@ -11,10 +11,12 @@ export function useShortcuts({
   openPalette,
   openHelp,
   blocked,
+  canEdit = true,
 }: {
   openPalette: () => void;
   openHelp: () => void;
   blocked: boolean;
+  canEdit?: boolean;
 }) {
   const navigate = useNavigate();
   useEffect(() => {
@@ -43,12 +45,12 @@ export function useShortcuts({
       } else if (e.key === '?') {
         e.preventDefault();
         openHelp();
-      } else if (e.key === 'n') {
+      } else if (e.key === 'n' && canEdit) {
         e.preventDefault();
         navigate('/tasks?task=new');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate, openPalette, openHelp, blocked]);
+  }, [navigate, openPalette, openHelp, blocked, canEdit]);
 }
