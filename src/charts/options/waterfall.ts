@@ -2,7 +2,7 @@
 import { fmtFte, fmtHours } from '../../../shared/format';
 import type { Step } from '../../../shared/dashboard';
 import type { MessageKey } from '../../../shared/i18n/az';
-import { axisStyle, base, type ChartSpec, type ChartTheme } from '../theme';
+import { axisStyle, base, glow, vGradA, type ChartSpec, type ChartTheme } from '../theme';
 import type { T } from './types';
 
 export function waterfallOption(steps: Step[], norm: number, th: ChartTheme, t: T): ChartSpec {
@@ -69,18 +69,17 @@ export function waterfallOption(steps: Step[], norm: number, th: ChartTheme, t: 
         },
       },
       series: [
-        { type: 'bar', stack: 'wf', silent: true, itemStyle: { color: 'transparent' }, data: bases, barWidth: '38%' },
+        { type: 'bar', stack: 'wf', silent: true, itemStyle: { color: 'transparent' }, data: bases, barWidth: '34%' },
         {
           type: 'bar',
           stack: 'wf',
-          barWidth: '38%',
+          barWidth: '34%',
           data: vals.map((v, i) => ({
             value: v,
-            itemStyle: {
-              color: steps[i].kind === 'total' ? th.neutral : th.cat[1],
-              borderRadius: 4,
-              decal: steps[i].kind === 'minus' ? undefined : undefined,
-            },
+            itemStyle:
+              steps[i].kind === 'total'
+                ? { color: vGradA(th.neutral, 0.55), borderRadius: 10 }
+                : { color: vGradA(th.cat[1], 0.6), borderRadius: 10, ...glow(th, th.cat[1]) },
           })),
           label: {
             show: true,

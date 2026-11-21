@@ -1,7 +1,7 @@
 // 4. Əməkdaşların yüklənməsi — üfüqi bar, sıralı; 85–100% zona, 100% xətti; rəng + mətn etiketi/▲ (rəng tək daşıyıcı deyil).
 import { fmtFte, fmtHours, fmtPct } from '../../../shared/format';
 import type { EmployeeLoad } from '../../../shared/metrics';
-import { axisStyle, base, statusColor, type ChartSpec, type ChartTheme } from '../theme';
+import { axisStyle, base, glow, hGrad, statusColor, type ChartSpec, type ChartTheme } from '../theme';
 import type { T } from './types';
 
 export function loadOption(bars: EmployeeLoad[], warn: number, th: ChartTheme, t: T): ChartSpec {
@@ -46,7 +46,7 @@ export function loadOption(bars: EmployeeLoad[], warn: number, th: ChartTheme, t
           backgroundStyle: { color: th.mode === 'light' ? 'rgba(15,23,42,0.035)' : 'rgba(255,255,255,0.04)', borderRadius: 6 },
           data: rows.map((b) => ({
             value: Number.isFinite(b.load) ? +(b.load * 100).toFixed(1) : max,
-            itemStyle: { color: statusColor(th, b.level), borderRadius: 6 },
+            itemStyle: { color: hGrad(statusColor(th, b.level)), borderRadius: 8, ...glow(th, statusColor(th, b.level)) },
           })),
           label: {
             show: true,

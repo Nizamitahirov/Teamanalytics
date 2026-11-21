@@ -829,6 +829,18 @@ export const az = {
   'rep.period.total': 'Ümumi',
   'rep.period.people': 'Əməkdaşların yükü',
   'rep.period.normChanged': 'Effektiv norma dəyişib: {a} → {b} saat — FTE rəqəmləri birbaşa müqayisə edilərkən nəzərə alın.',
+  'dash.attention': 'Diqqət tələb edir',
+  'dash.attentionEmpty': 'Hər şey qaydasındadır — normanı aşan yoxdur',
+  'dash.overBy': 'normadan +{h} saat',
+  'dash.attentionAll': 'Hamısına bax ({n})',
+  'dash.cap.util': 'Ştatın istifadəsi (lazım ÷ mövcud)',
+  'dash.cap.reserve': 'Ehtiyat: {v} FTE boşdur',
+  'dash.cap.shortage': 'Çatışmazlıq: {v} FTE əlavə ştat lazımdır',
+  'dash.mx.share': 'Ümumi saatdakı pay: {p}',
+  'dash.mx.sharePct': 'Pay',
+  'dash.mx.fte': 'FTE',
+  'dash.mx.people': 'Nəfər',
+  'dash.mx.tasks': 'İş',
 } as const;
 
 export type MessageKey = keyof typeof az;

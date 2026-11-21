@@ -97,7 +97,7 @@ export function treemapOption(tree: TreeNode[], mode: 'treemap' | 'sunburst', th
           ],
         };
   return {
-    height: 420,
+    height: 500,
     summary,
     table: {
       columns: [t('field.company'), t('field.process'), t('unit.hours'), '%'],
