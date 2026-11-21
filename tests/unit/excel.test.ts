@@ -1,7 +1,16 @@
 // Excel v2 (SPEC §9) və hesabat datası (§6.7) — saf funksiyalar.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { detectMapping, exportSheets, headerKey, importPlan, parseSheet, toCsv, TASK_COLS } from '../../shared/excel.js';
+import {
+  detectMapping,
+  exportSheets,
+  headerKey,
+  importPlan,
+  parseSheet,
+  suggestRenames,
+  toCsv,
+  TASK_COLS,
+} from '../../shared/excel.js';
 import { commentary, employeeReport, executiveReport, filterLog, processReport, recentTransfers } from '../../shared/report.js';
 import { normalizeEmployee, normalizeTask } from '../../shared/model.js';
 import { computeMetrics } from '../../shared/metrics.js';
@@ -33,7 +42,7 @@ describe('sütun xəritəsi', () => {
       '',
     ]);
     const m = detectMapping(TASK_COLS.map(([, h]) => h));
-    expect(m.filter(Boolean)).toHaveLength(16); // hesablanmış sütunlar (cari icraçı, status, fəaliyyət, son dəyişiklik) import olunmur
+    expect(m.filter(Boolean)).toHaveLength(17); // hesablanmış sütunlar (cari icraçı, status, son dəyişiklik) import olunmur
     expect(m[TASK_COLS.findIndex(([k]) => k === 'current')]).toBe('');
   });
 });
@@ -104,6 +113,74 @@ describe('validasiya və diff önizləmə', () => {
     const p = importPlan(s, rows, { mode: 'replace', newId });
     expect(p.deleted).toHaveLength(340);
     expect(p.next.tasks.map((t) => t.id)).toEqual(['B-25']);
+  });
+});
+
+describe('ad uyğunlaşdırması və fəaliyyət forması', () => {
+  const head = [
+    'id',
+    'Şirkət',
+    'Fəaliyyət forması',
+    'Proses',
+    'Tapşırıq',
+    'Əvvəlki icraçı',
+    'Sonrakı icraçı',
+    'İllik sərf olunan vaxt (saat)',
+  ];
+  const map = detectMapping(head);
+  const s = live();
+  const b1 = s.tasks.find((t: { id: string }) => t.id === 'B-1')!;
+  const rows = parseSheet(
+    [
+      head,
+      ['B-1', 'Birbank', 'Administrativ', b1.process, b1.task, 'Ağaəli Nümunəli', 'Zümrüd Birinci', b1.hours],
+      ['B-2', 'Birbank', 'Administrativ', 'P', 't', 'Ağaəli Nümunəli', 'Zümrüd Birinci', 12],
+      ['B-7', 'Birbank', 'Administrativ', 'P', 't', 'Ağaəli Nümunəli', 'Zümrüd İkinci', 62.67],
+      ['B-15', 'Birbank', 'Administrativ', 'P', 't', 'Svetlana Nümunə', 'Fəridə Nümunə', 5],
+      ['B-16', 'Birbank', 'Administrativ', 'P', 't', 'Kamila Nümunə', 'Mədinə Nümunə', 5],
+      ['M-1', 'Birmarket', 'Project and AdHoc based', 'P', 't', 'Nümunəli Gülnar', '', 10],
+      ['M-2', 'Birmarket', 'Administrativ', 'P', 't', 'Nümunəli Gülnar', '', 2],
+    ],
+    map,
+  );
+
+  it('fəaliyyət forması sütunu tanınır, amma tapşırığa yazılmır', () => {
+    expect(map[2]).toBe('activity');
+    const p = importPlan(s, rows, { newId });
+    expect(p.created.find((t) => t.id === 'M-1')).not.toHaveProperty('activity');
+  });
+
+  it('qısa adlar tam adlara təklif olunur (dublikatlar birləşir, oxşar olmayanlar toxunulmur)', () => {
+    const sg = suggestRenames(s.employees, rows);
+    expect(sg).toMatchObject({
+      Ağaəli: 'Ağaəli Nümunəli',
+      Zümrüd: 'Zümrüd Birinci', // faylda daha çox keçən
+      'Sveta x': 'Svetlana Nümunə',
+      Farida: 'Fəridə Nümunə',
+      Fəridə: 'Fəridə Nümunə',
+      Kamila: 'Kamila Nümunə',
+      Kamilə: 'Kamila Nümunə',
+      Medina: 'Mədinə Nümunə',
+    });
+    for (const n of ['Aygül', 'Gülşən', 'Nərmin', 'Orxan', 'Aysel', 'Ülkər', 'Şöbə əməkdaşları']) expect(sg[n]).toBeUndefined();
+  });
+
+  it('ad dəyişmə profili saxlayır, tapşırıqlarda adı yeniləyir; yeni əməkdaşın fəaliyyəti fayldan', () => {
+    const p = importPlan(s, rows, { newId, renames: suggestRenames(s.employees, rows) });
+    const emp = (n: string) => p.next.employees.find((e) => e.name === n);
+    expect(emp('Ağaəli')).toBeUndefined();
+    expect(emp('Ağaəli Nümunəli')).toMatchObject({ activity: 'Project and AdHoc based', fte: 1 }); // köhnə profil
+    expect(emp('Zümrüd İkinci')).toMatchObject({ activity: 'Administrativ' });
+    expect(emp('Nümunəli Gülnar')).toMatchObject({ company: 'Birmarket', activity: 'Project and AdHoc based' }); // 10 > 2 saat
+    expect(emp('Kamilə')).toBeUndefined();
+    expect(p.renamed).toContainEqual({ from: 'Kamilə', to: 'Kamila Nümunə', merged: true });
+    expect(p.newEmployees.sort((a, b) => a.localeCompare(b))).toEqual(['Nümunəli Gülnar', 'Zümrüd İkinci']);
+    // faylda olmayan tapşırıqda da köhnə ad yenilənir
+    const left = p.next.tasks.filter((t) => [t.owner_before, t.owner_after].some((n) => n === 'Ağaəli' || n === 'Hüseyn x'));
+    expect(left).toEqual([]);
+    expect(p.next.tasks.some((t) => t.id === 'B-3' && t.owner_before === 'Ağaəli Nümunəli')).toBe(true);
+    // B-1: yalnız ad dəyişib → fayl ilə fərq yoxdur
+    expect(p.changed.find((c) => c.id === 'B-1')).toBeUndefined();
   });
 });
 

@@ -8,9 +8,16 @@ export function StatusBadge({ status }: { status: Status }) {
   return <span className={`${s.badge} ${s[status]}`}>{status}</span>;
 }
 
-/** Şirkət rəngi varlığa bağlıdır (SPEC §12.1): Birbank qırmızı, Pashapay = kateqoriya 1. */
+/** Şirkət rəngi varlığa bağlıdır (SPEC §12.1): Birbank qırmızı, Pashapay = kateqoriya 1, Birmarket = kateqoriya 3. */
 export function CompanyBadge({ company }: { company: string }) {
-  const color = company === 'Birbank' ? 'var(--company-birbank)' : company === 'Pashapay' ? 'var(--cat-1)' : 'var(--muted)';
+  const color =
+    company === 'Birbank'
+      ? 'var(--company-birbank)'
+      : company === 'Pashapay'
+        ? 'var(--cat-1)'
+        : company === 'Birmarket'
+          ? 'var(--cat-3)'
+          : 'var(--muted)';
   return (
     <span className={s.company}>
       <i style={{ background: color }} aria-hidden="true" />

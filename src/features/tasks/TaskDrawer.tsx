@@ -68,7 +68,7 @@ export function TaskDrawer({
     const uniq = (k: keyof TaskDoc) =>
       [...new Set(tasks.map((x) => String(x[k] ?? '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'az'));
     return {
-      company: [...new Set(['Birbank', 'Pashapay', ...uniq('company')])],
+      company: [...new Set(['Birbank', 'Pashapay', 'Birmarket', ...uniq('company')])],
       process: uniq('process'),
       category: uniq('category'),
     };
