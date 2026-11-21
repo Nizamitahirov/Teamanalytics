@@ -19,8 +19,9 @@ import type { MessageKey } from '../../../shared/i18n/az';
 import f from '../../components/Form.module.css';
 import s from './SettingsPage.module.css';
 import { DataTab, MaintTab } from './OpsTabs';
+import { StaffCompanyTab } from './StaffCompanyTab';
 
-type Tab = 'account' | 'general' | 'users' | 'data' | 'maint' | 'keys';
+type Tab = 'account' | 'general' | 'staff' | 'users' | 'data' | 'maint' | 'keys';
 const ROLES: Role[] = ['admin', 'editor', 'viewer'];
 
 /** Təhlükəsiz müvəqqəti parol (istifadəçi ilk girişdə dəyişməlidir). */
@@ -37,7 +38,9 @@ export function SettingsPage() {
   const { t } = useI18n();
   const { isAdmin } = useCan();
   const [params, setParams] = useSearchParams();
-  const tabs: Tab[] = isAdmin ? ['account', 'general', 'users', 'data', 'maint', 'keys'] : ['account', 'general', 'keys'];
+  const tabs: Tab[] = isAdmin
+    ? ['account', 'general', 'staff', 'users', 'data', 'maint', 'keys']
+    : ['account', 'general', 'staff', 'keys'];
   const tab = (tabs.includes(params.get('tab') as Tab) ? params.get('tab') : 'account') as Tab;
   return (
     <div className={s.layout}>
@@ -56,6 +59,7 @@ export function SettingsPage() {
       <div className={s.body}>
         {tab === 'account' && <Account />}
         {tab === 'general' && <General />}
+        {tab === 'staff' && <StaffCompanyTab />}
         {tab === 'users' && isAdmin && <Users />}
         {tab === 'data' && isAdmin && <DataTab />}
         {tab === 'maint' && isAdmin && <MaintTab />}

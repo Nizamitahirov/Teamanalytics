@@ -119,3 +119,19 @@ describe('Panel datası', () => {
     expect(waterfall(input, f).every((s) => s.value <= 7000)).toBe(true);
   });
 });
+
+describe('şirkət filtri: mövcud ştat profil şirkətinə görə', () => {
+  it('başqa şirkətin işi ötürülmüş əməkdaş o şirkətin mövcud ştatına düşmür, saatlar isə qalır', () => {
+    const bb = input.employees.find((e: { company: string; is_group: boolean }) => e.company === 'Birbank' && !e.is_group)!;
+    const id = input.tasks.find(
+      (t: { company: string; is_cancelled: boolean }) => t.company === 'Pashapay' && !t.is_cancelled,
+    )!.id;
+    const tasks = input.tasks.map((t: { id: string }) => (t.id === id ? { ...t, owner_after: bb.name } : t));
+    const m = computeMetrics({ ...input, tasks }, { filters: { company: 'Pashapay' } });
+    expect(m.loads.some((r) => r.name === bb.name)).toBe(true); // yük siyahısında görünür
+    expect(m.people.some((r) => r.name === bb.name)).toBe(false); // ştatda sayılmır
+    expect(m.people.every((r) => r.company === 'Pashapay')).toBe(true);
+    const all = computeMetrics({ ...input, tasks });
+    expect(all.people.some((r) => r.name === bb.name)).toBe(true); // filtrsiz — dəyişmir
+  });
+});

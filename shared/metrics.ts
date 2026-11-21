@@ -171,8 +171,12 @@ export function computeMetrics(
       level: levelOf(load, settings.warn),
     };
   });
-  // §7.5 Mövcud ştat: aktiv işi olan, qrup olmayan, aktiv əməkdaşlar (siyahıda olanlar)
-  const people = loads.filter((r) => r.known && !r.isGroup && r.active && r.hours > 0);
+  // §7.5 Mövcud ştat: aktiv işi olan, qrup olmayan, aktiv əməkdaşlar (siyahıda olanlar).
+  // Şirkət filtrində yalnız profil şirkəti həmin şirkət olanlar (başqa şirkətin işini görən — o şirkətin işçisi deyil;
+  // sahibin qərarı, 2026-11). İşin saatları işin şirkətində qalır (lazım olan ştat dəyişmir).
+  const people = loads.filter(
+    (r) => r.known && !r.isGroup && r.active && r.hours > 0 && (!filters.company || r.company === filters.company),
+  );
   const fteHave = people.reduce((s, r) => s + r.fte, 0);
   const fteNeed = totalHours / N;
 
