@@ -1,7 +1,7 @@
 // 9. Pareto — proseslər saata görə azalan; üstdə ayrıca nazik kumulyativ % zolağı (ikinci y oxu YOXDUR — SPEC §12.2).
 import { fmtHours, fmtPct } from '../../../shared/format';
 import type { pareto } from '../../../shared/dashboard';
-import { axisStyle, base, type ChartSpec, type ChartTheme } from '../theme';
+import { axisStyle, base, glow, vGradA, type ChartSpec, type ChartTheme } from '../theme';
 import type { T } from './types';
 
 export function paretoOption(p: ReturnType<typeof pareto>, th: ChartTheme, t: T): ChartSpec {
@@ -94,7 +94,10 @@ export function paretoOption(p: ReturnType<typeof pareto>, th: ChartTheme, t: T)
           barMaxWidth: 18,
           data: p.items.map((x, i) => ({
             value: +x.hours.toFixed(1),
-            itemStyle: { color: i <= cut ? th.cat[1] : th.idle, borderRadius: [5, 5, 0, 0] },
+            itemStyle:
+              i <= cut
+                ? { color: vGradA(th.cat[1], 0.55), borderRadius: [6, 6, 2, 2], ...glow(th, th.cat[1]) }
+                : { color: th.idle, borderRadius: [6, 6, 2, 2] },
           })),
         },
       ],

@@ -3,9 +3,10 @@
 :root {
   color-scheme: light;
   /* sabit (hər iki rejimdə) */
-  --ink: #090a13;
-  --ink-2: #12141f;
-  --ink-3: #1c1f2e;
+  /* v2.2: neytral qrafit (nümunələrdəki kimi), göy çalarsız */
+  --ink: #111113;
+  --ink-2: #19191c;
+  --ink-3: #232327;
   --ink-line: rgba(255, 255, 255, 0.08);
   --grad: linear-gradient(120deg, #e30613 0%, #f23a1c 42%, #ff6b17 78%, #ff9524 100%);
   --brand: #f2501e;
@@ -15,16 +16,16 @@
 
   /* səthlər və mətn — açıq */
   /* v2.1 (Data-Dense Dashboard üslubu): slate neytralları, sakit səthlər — brend rəngi yalnız əsas əməliyyat və vurğu üçün */
-  --bg: #f4f6f9;
+  --bg: #eef0f3;
   --surface: #ffffff;
-  --surface-2: #f8fafc;
+  --surface-2: #f5f6f8;
   --text: #0f172a;
   --text-2: #334155;
   --muted: #5b6577;
-  --border: #e3e8ef;
+  --border: #e4e7ec;
   --border-strong: #cbd5e1;
   --hover: rgba(15, 23, 42, 0.045);
-  --topbar-bg: rgba(244, 246, 249, 0.86);
+  --topbar-bg: rgba(238, 240, 243, 0.86);
   /* əsas düymə: düz brend qırmızısı (ağ mətn kontrastı 4,9:1) */
   --primary: #e30613;
   --primary-hover: #c20510;
@@ -71,10 +72,11 @@
   --sp-14: 56px;
 
   /* radius və kölgə */
-  --r-sm: 6px;
-  --r-md: 10px;
-  --r-lg: 14px;
-  --r-xl: 20px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
   --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.05);
   --shadow-2: 0 10px 30px -8px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.06);
   --shadow-3: 0 30px 80px rgba(0, 0, 0, 0.35);
@@ -93,20 +95,20 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0b0d14;
-  --surface: #121521;
+  --bg: #0c0c0e;
+  --surface: #161618;
   --brand-text: #ff8a5b;
-  --surface-2: #181c2a;
-  --text: #edf0f6;
-  --text-2: #bcc3d1;
-  --muted: #8f98aa;
-  --border: #252a3a;
-  --border-strong: #353c50;
+  --surface-2: #1e1e21;
+  --text: #f4f4f5;
+  --text-2: #c7c7cf;
+  --muted: #9a9aa5;
+  --border: #2a2a2f;
+  --border-strong: #3a3a41;
   --hover: rgba(255, 255, 255, 0.06);
   --primary: #e8202b;
   --primary-hover: #ff3a44;
   --primary-soft: rgba(255, 77, 87, 0.12);
-  --topbar-bg: rgba(11, 12, 20, 0.85);
+  --topbar-bg: rgba(12, 12, 14, 0.86);
   --cat-1: #4a7de3;
   --cat-2: #ec6430;
   --cat-3: #1a9e92;
@@ -123,20 +125,20 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
-    --bg: #0b0d14;
-    --surface: #121521;
+    --bg: #0c0c0e;
+    --surface: #161618;
     --brand-text: #ff8a5b;
-    --surface-2: #181c2a;
-    --text: #edf0f6;
-    --text-2: #bcc3d1;
-    --muted: #8f98aa;
-    --border: #252a3a;
-    --border-strong: #353c50;
+    --surface-2: #1e1e21;
+    --text: #f4f4f5;
+    --text-2: #c7c7cf;
+    --muted: #9a9aa5;
+    --border: #2a2a2f;
+    --border-strong: #3a3a41;
     --hover: rgba(255, 255, 255, 0.06);
     --primary: #e8202b;
     --primary-hover: #ff3a44;
     --primary-soft: rgba(255, 77, 87, 0.12);
-    --topbar-bg: rgba(11, 12, 20, 0.85);
+    --topbar-bg: rgba(12, 12, 14, 0.86);
     --cat-1: #4a7de3;
     --cat-2: #ec6430;
     --cat-3: #1a9e92;

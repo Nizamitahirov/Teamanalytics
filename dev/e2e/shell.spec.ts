@@ -136,7 +136,9 @@ test('Panel: qızıl rəqəmlər (SPEC §13.2), görünüş açarı, sinxron və
   await expect(page.getByTestId('kpi-cancelled')).toHaveText('933saat');
   await expect(page.getByTestId('kpi-transfers')).toHaveText('121');
   await expect(page.getByTestId('kpi-opt')).toHaveText('55saat');
-  await expect(page.getByText('Ülkər · 129%')).toBeVisible();
+  // Normanı aşanlar "Diqqət tələb edir" panelində (v2.2)
+  const attention = page.getByRole('complementary', { name: 'Diqqət tələb edir' });
+  await expect(attention.getByRole('link', { name: /Ülkər.*129%/ })).toBeVisible();
   await page.screenshot({ path: `${SHOTS}/v2-panel-1440.png` });
 
   await page.getByRole('button', { name: 'Optimizasiyadan sonra' }).click();

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { AlertCircle, Ban, Flame, Inbox, Info, Repeat, ShieldAlert, Zap } from 'lucide-react';
+import { AlertCircle, Ban, Flame, Inbox, Info, Repeat, Zap } from 'lucide-react';
 import { ACT_ADMIN, ACT_PROJECT } from '../../../shared/constants';
 import type { Filters } from '../../../shared/metrics';
 // Qrafiklər (ECharts) ayrıca chunk-da: hero və KPI-lar dərhal görünür, qrafiklər arxasınca (SPEC §11 — LCP)
@@ -8,11 +8,11 @@ const DashboardWidgets = lazy(() => import('./DashboardWidgets').then((m) => ({ 
 import { useI18n } from '../../lib/i18n';
 import { useData } from '../../store';
 import { computeMetrics, type View } from '../../../shared/metrics';
-import { fmtFte, fmtHours, fmtPct, formatNumber } from '../../../shared/format';
+import { fmtFte, fmtHours, formatNumber } from '../../../shared/format';
 import { EmptyState } from '../../components/EmptyState';
 import { Skeleton } from '../../components/Skeleton';
-import { RebalanceButton } from '../scenarios/RebalanceButton';
 import { useHealth } from '../../hooks/useHealth';
+import { AttentionPanel, Ring } from './AttentionPanel';
 import s from './DashboardPage.module.css';
 
 /**
@@ -94,127 +94,102 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <section className={s.hero} aria-label={t('page.dashboard')}>
-        <div className={s.stat}>
-          <div className={s.label}>{t('kpi.volume')}</div>
-          <div className={s.value} data-testid="kpi-volume">
-            {fmtHours(m.totalHours)}
-            <small>{unitH}</small>
-          </div>
-          <div className={s.foot}>{t('kpi.volumeFoot', { n: formatNumber(m.activeTasks) })}</div>
-        </div>
-        <div className={s.stat}>
-          <div className={s.label}>{t('kpi.need')}</div>
-          <div className={s.value} data-testid="kpi-need">
-            {fmtFte(m.fteNeed)}
-            <small>{unitF}</small>
-          </div>
-          <div className={s.foot}>{t('kpi.needFoot', { h: fmtHours(m.totalHours), norm: formatNumber(N) })}</div>
-        </div>
-        <div className={s.stat}>
-          <div className={s.label}>{t('kpi.have')}</div>
-          <div className={s.value} data-testid="kpi-have">
-            {fmtFte(m.fteHave)}
-            <small>{unitF}</small>
-          </div>
-          <div className={s.foot}>{t('kpi.haveFoot', { n: m.people.length })}</div>
-          {m.fteHave > 0 && (
-            <div
-              className={s.meter}
-              role="meter"
-              aria-label={t('kpi.utilization')}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round((m.fteNeed / m.fteHave) * 100)}
-              title={`${t('kpi.utilization')}: ${fmtPct(m.fteNeed / m.fteHave)}`}
-            >
-              <span data-over={m.fteNeed > m.fteHave} style={{ width: `${Math.min(100, (m.fteNeed / m.fteHave) * 100)}%` }} />
+      <div className={s.top}>
+        <div className={s.mainCol}>
+          <section className={s.hero} aria-label={t('page.dashboard')}>
+            <div className={s.stat}>
+              <div className={s.label}>{t('kpi.volume')}</div>
+              <div className={s.value} data-testid="kpi-volume">
+                {fmtHours(m.totalHours)}
+                <small>{unitH}</small>
+              </div>
+              <div className={s.foot}>{t('kpi.volumeFoot', { n: formatNumber(m.activeTasks) })}</div>
             </div>
-          )}
-        </div>
-        <div className={s.stat}>
-          <div className={s.label}>{gap >= 0 ? t('kpi.reserve') : t('kpi.shortage')}</div>
-          <div className={s.value} data-testid="kpi-gap">
-            <span className={`${s.chip} ${gap < 0 ? s.chipBad : ''}`}>
-              {gap < 0 && <AlertCircle size={18} aria-hidden="true" />}
-              {gap >= 0 ? '+' : '−'}
-              {fmtFte(Math.abs(gap))}
+            <div className={s.stat}>
+              <div className={s.label}>{t('kpi.need')}</div>
+              <div className={s.value} data-testid="kpi-need">
+                {fmtFte(m.fteNeed)}
+                <small>{unitF}</small>
+              </div>
+              <div className={s.foot}>{t('kpi.needFoot', { h: fmtHours(m.totalHours), norm: formatNumber(N) })}</div>
+            </div>
+            <div className={s.stat}>
+              <div className={s.label}>{t('kpi.have')}</div>
+              <div className={s.valueRow}>
+                <div className={s.value} data-testid="kpi-have">
+                  {fmtFte(m.fteHave)}
+                  <small>{unitF}</small>
+                </div>
+                {m.fteHave > 0 && <Ring ratio={m.fteNeed / m.fteHave} label={t('kpi.utilization')} />}
+              </div>
+              <div className={s.foot}>{t('kpi.haveFoot', { n: m.people.length })}</div>
+            </div>
+            <div className={s.stat}>
+              <div className={s.label}>{gap >= 0 ? t('kpi.reserve') : t('kpi.shortage')}</div>
+              <div className={s.value} data-testid="kpi-gap">
+                <span className={`${s.chip} ${gap < 0 ? s.chipBad : ''}`}>
+                  {gap < 0 && <AlertCircle size={18} aria-hidden="true" />}
+                  {gap >= 0 ? '+' : '−'}
+                  {fmtFte(Math.abs(gap))}
+                </span>
+                <small>{unitF}</small>
+              </div>
+              <div className={s.foot}>
+                {gap >= 0 ? t('kpi.gapFree', { h: fmtHours(gap * N) }) : t('kpi.gapExtra', { h: fmtHours(-gap * N) })}
+              </div>
+            </div>
+          </section>
+          {/* Effektiv norma izahı (ADR-008): rəhbərlik rəqəmlərin necə hesablandığını görsün */}
+          <p className={s.normNote} data-testid="norm-note">
+            <Info size={15} aria-hidden="true" />
+            <span>
+              {t('dash.normNote', {
+                gross: formatNumber(m.normGross),
+                vac: formatNumber(m.vacationHours),
+                days: formatNumber(m.vacationDays),
+                norm: formatNumber(m.norm),
+              })}
             </span>
-            <small>{unitF}</small>
-          </div>
-          <div className={s.foot}>
-            {gap >= 0 ? t('kpi.gapFree', { h: fmtHours(gap * N) }) : t('kpi.gapExtra', { h: fmtHours(-gap * N) })}
-          </div>
-        </div>
-      </section>
-      {/* Effektiv norma izahı (ADR-008): rəhbərlik rəqəmlərin necə hesablandığını görsün */}
-      <p className={s.normNote} data-testid="norm-note">
-        <Info size={15} aria-hidden="true" />
-        <span>
-          {t('dash.normNote', {
-            gross: formatNumber(m.normGross),
-            vac: formatNumber(m.vacationHours),
-            days: formatNumber(m.vacationDays),
-            norm: formatNumber(m.norm),
-          })}
-        </span>
-      </p>
+          </p>
 
-      <section className={s.kpis}>
-        <Link to="/employees?level=critical" className={s.kpiLink}>
-          <Kpi
-            icon={<Flame size={20} />}
-            label={t('kpi.over')}
-            testId="kpi-over"
-            value={String(m.over.length)}
-            unit={t('unit.people')}
-            foot={t('kpi.overFoot')}
-          />
-        </Link>
-        <Kpi
-          icon={<Ban size={20} />}
-          label={t('kpi.cancelled')}
-          testId="kpi-cancelled"
-          value={fmtHours(m.cancelled.hours)}
-          unit={unitH}
-          foot={t('kpi.cancelledFoot', { n: m.cancelled.count, fte: fmtFte(m.cancelled.hours / N, 2) })}
-        />
-        <Kpi
-          icon={<Repeat size={20} />}
-          label={t('kpi.transfers')}
-          testId="kpi-transfers"
-          value={formatNumber(m.transfers.count)}
-          foot={t('kpi.transfersFoot', { h: fmtHours(m.transfers.hours) })}
-        />
-        <Kpi
-          icon={<Zap size={20} />}
-          label={t('kpi.opt')}
-          testId="kpi-opt"
-          value={fmtHours(m.optPotential)}
-          unit={unitH}
-          foot={view === 'opt' ? t('kpi.optApplied') : t('kpi.optFoot', { fte: fmtFte(m.optPotential / N, 2) })}
-        />
-      </section>
-
-      {health.length > 0 && (
-        <Link to="/health" className={s.healthLink} data-testid="health-link">
-          <ShieldAlert size={15} aria-hidden="true" /> {t('health.dashLink', { n: health.length })}
-        </Link>
-      )}
-      {m.over.length > 0 && (
-        <div className={s.over}>
-          <strong>{t('dash.overList')}:</strong>
-          {m.over.map((o) => (
-            <span key={o.name} className={s.person}>
-              <AlertCircle size={14} aria-hidden="true" />
-              {o.name} · {fmtPct(o.load)}
-            </span>
-          ))}
-          <span style={{ marginLeft: 'auto' }}>
-            <RebalanceButton size="sm" />
-          </span>
+          <section className={s.kpis}>
+            <Link to="/employees?level=critical" className={s.kpiLink}>
+              <Kpi
+                icon={<Flame size={20} />}
+                label={t('kpi.over')}
+                testId="kpi-over"
+                value={String(m.over.length)}
+                unit={t('unit.people')}
+                foot={t('kpi.overFoot')}
+              />
+            </Link>
+            <Kpi
+              icon={<Ban size={20} />}
+              label={t('kpi.cancelled')}
+              testId="kpi-cancelled"
+              value={fmtHours(m.cancelled.hours)}
+              unit={unitH}
+              foot={t('kpi.cancelledFoot', { n: m.cancelled.count, fte: fmtFte(m.cancelled.hours / N, 2) })}
+            />
+            <Kpi
+              icon={<Repeat size={20} />}
+              label={t('kpi.transfers')}
+              testId="kpi-transfers"
+              value={formatNumber(m.transfers.count)}
+              foot={t('kpi.transfersFoot', { h: fmtHours(m.transfers.hours) })}
+            />
+            <Kpi
+              icon={<Zap size={20} />}
+              label={t('kpi.opt')}
+              testId="kpi-opt"
+              value={fmtHours(m.optPotential)}
+              unit={unitH}
+              foot={view === 'opt' ? t('kpi.optApplied') : t('kpi.optFoot', { fte: fmtFte(m.optPotential / N, 2) })}
+            />
+          </section>
         </div>
-      )}
+        <AttentionPanel m={m} healthCount={health.length} />
+      </div>
       <Suspense
         fallback={
           <div style={{ marginTop: 16, display: 'grid', gap: 16 }} aria-busy="true" aria-label={t('state.loading')}>

@@ -33,7 +33,7 @@ import {
 } from '../../../shared/dashboard';
 import { effectiveNorm, levelOf, type Filters, type Metrics, type View } from '../../../shared/metrics';
 import { fmtFte, fmtHours, formatNumber } from '../../../shared/format';
-import { ACT_PROJECT } from '../../../shared/constants';
+import { CapacityGauge, CompanyTiles } from './DashboardTiles';
 import s from './DashboardWidgets.module.css';
 
 /** Panelin qrafik hissəsi (SPEC §6.2 bəndlər 3–13). Bütün vidjetlər görünüşə və qlobal filtrlərə tabedir. */
@@ -68,6 +68,8 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
   const matrix = useMemo(() => companyActivityMatrix(input, opts), [input, opts]);
   const staff = useMemo(() => staffTable(input, m, log, { filters }), [input, m, log, filters]);
   const hasFlows = specs.sankey.table.rows.length > 0;
+  // Cütlənmiş vidjetlər eyni hündürlükdə (boşluq qalmasın)
+  const pairH = Math.max(specs.wf.height, specs.pareto.height);
 
   const exportCsv = () => {
     const head = [
@@ -111,13 +113,21 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
   return (
     <div className={s.grid}>
       <ChartFrame
-        className={s.s12}
+        className={s.s6}
         testId="w-capacity"
         title={t('dash.w.capacity')}
         info={t('dash.i.capacity')}
         spec={specs.cap}
         background={bg}
+        extra={<CapacityGauge need={m.fteNeed} have={m.fteHave} warn={settings.warn} />}
       />
+
+      <section className={`${s.s6} ${s.card}`} aria-labelledby="mx-h" data-testid="w-matrix">
+        <h2 id="mx-h" className={s.cardTitle}>
+          {t('dash.w.matrix')}
+        </h2>
+        <CompanyTiles cells={matrix} colorOf={(c, i) => companyColor(th, c, i)} />
+      </section>
 
       <ChartFrame
         className={s.s8}
@@ -138,42 +148,14 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
         }
       />
 
-      <section className={`${s.s4}`} aria-labelledby="mx-h" data-testid="w-matrix">
-        <div
-          className={s.cell}
-          style={{
-            background: 'var(--surface)',
-            boxShadow: 'var(--shadow-1)',
-            borderRadius: 'var(--r-lg)',
-            padding: 'var(--sp-4) var(--sp-5)',
-            height: '100%',
-          }}
-        >
-          <h2 id="mx-h" style={{ margin: '0 0 var(--sp-3)', fontSize: 'var(--fs-16)', fontWeight: 800 }}>
-            {t('dash.w.matrix')}
-          </h2>
-          <div className={s.matrix}>
-            {matrix.map((c, i) => (
-              <div key={`${c.company}-${c.activity}`} className={s.cell}>
-                <h3>
-                  <i style={{ background: companyColor(th, c.company, i) }} aria-hidden="true" />
-                  {c.company} · {c.activity === ACT_PROJECT ? t('dash.project') : c.activity}
-                </h3>
-                <dl>
-                  <dt>{t('unit.hours')}</dt>
-                  <dd>{fmtHours(c.hours)}</dd>
-                  <dt>{t('kpi.need')}</dt>
-                  <dd>{fmtFte(c.fte, 2)}</dd>
-                  <dt>{t('unit.people')}</dt>
-                  <dd>{c.people}</dd>
-                  <dt>{t('nav.tasks')}</dt>
-                  <dd>{c.tasks}</dd>
-                </dl>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ChartFrame
+        className={s.s4}
+        testId="w-hist"
+        title={t('dash.w.hist')}
+        info={t('dash.i.hist')}
+        spec={{ ...specs.hist, height: specs.load.height }}
+        background={bg}
+      />
 
       {hasFlows ? (
         <ChartFrame
@@ -199,7 +181,7 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
       )}
 
       <ChartFrame
-        className={s.s7}
+        className={s.s12}
         testId="w-tree"
         title={t('dash.w.tree')}
         subtitle={t('dash.s.tree')}
@@ -223,12 +205,22 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
       />
 
       <ChartFrame
-        className={s.s5}
+        className={s.s6}
         testId="w-waterfall"
         title={t('dash.w.waterfall')}
         info={t('dash.i.waterfall')}
-        spec={specs.wf}
+        spec={{ ...specs.wf, height: pairH }}
         background={bg}
+      />
+
+      <ChartFrame
+        className={s.s6}
+        testId="w-pareto"
+        title={t('dash.w.pareto')}
+        info={t('dash.i.pareto')}
+        spec={{ ...specs.pareto, height: pairH }}
+        background={bg}
+        onClick={(p) => p.name && navigate(`/tasks?process=${encodeURIComponent(p.name)}`)}
       />
 
       <ChartFrame
@@ -247,25 +239,6 @@ export function DashboardWidgets({ view, filters, m }: { view: View; filters: Fi
           const proc = h.cols[v[0]];
           navigate(`/tasks?owner=${encodeURIComponent(owner)}${proc !== OTHER ? `&process=${encodeURIComponent(proc)}` : ''}`);
         }}
-      />
-
-      <ChartFrame
-        className={s.s6}
-        testId="w-pareto"
-        title={t('dash.w.pareto')}
-        info={t('dash.i.pareto')}
-        spec={specs.pareto}
-        background={bg}
-        onClick={(p) => p.name && navigate(`/tasks?process=${encodeURIComponent(p.name)}`)}
-      />
-
-      <ChartFrame
-        className={s.s6}
-        testId="w-hist"
-        title={t('dash.w.hist')}
-        info={t('dash.i.hist')}
-        spec={specs.hist}
-        background={bg}
       />
 
       <TrendWidget company={filters.company ?? ''} />
