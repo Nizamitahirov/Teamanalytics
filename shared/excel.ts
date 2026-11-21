@@ -1,9 +1,10 @@
 // Excel v2 (SPEC §9) — saf hissə: export vərəqləri (2D massiv), sütun xəritəsi, validasiya, import diff.
 // SheetJS-dən asılı deyil (brauzerdə src/lib/excel.ts çevirir) — node testlərində yoxlanılır.
 // Import HEÇ VAXT kolleksiyanı əvəz etmir: nəticə yeni vəziyyətdir, yazma diffOps ilə gedir (CLAUDE.md §6).
-import { ACT_ADMIN } from './constants.js';
+import { ACT_ADMIN, ACT_PROJECT } from './constants.js';
 import { fmtFte } from './format.js';
 import type { Metrics } from './metrics.js';
+import { fold } from './search.js';
 import { curOwner, normalizeEmployee, normalizeTask, statusOf, type EmployeeDoc, type TaskDoc } from './model.js';
 import type { Snapshot } from './apply.js';
 import type { LogEntry, Scenario } from './schema.js';
@@ -42,10 +43,15 @@ export const EMP_COLS = [
   ['active', 'Aktiv'],
 ] as const;
 
-/** Import edilə bilən tapşırıq sahələri (hesablanmış sütunlar — cari icraçı, status, fəaliyyət — import olunmur). */
+/**
+ * Import edilə bilən sahələr (hesablanmış sütunlar — cari icraçı, status — import olunmur).
+ * `activity` tapşırığa yazılmır (fəaliyyət forması əməkdaş profilindədir — CLAUDE.md §5): yalnız fayldan YENİ
+ * yaranan əməkdaşın profilini doldurmaq üçün oxunur.
+ */
 export const IMPORT_FIELDS = [
   'id',
   'company',
+  'activity',
   'process',
   'category',
   'task',
@@ -67,6 +73,7 @@ export type ImportField = (typeof IMPORT_FIELDS)[number];
 export const ALIASES: Record<ImportField, string[]> = {
   id: ['id', 'ид', '№'],
   company: ['şirkət', 'company', 'şirkətlər'],
+  activity: ['fəaliyyət forması', 'activity', 'fəaliyyət'],
   process: ['proses', 'process'],
   category: ['kateqoriya', 'category'],
   task: ['tapşırıq', 'task', 'tapşırıqlar'],
@@ -244,6 +251,8 @@ export type ImportPlan = {
   deleted: TaskDoc[];
   errors: { row: number; errors: string[] }[];
   newEmployees: string[];
+  /** Ad dəyişmələri (köhnə → yeni); `merged` — yeni ad artıq var idi, profillər birləşdi */
+  renamed: { from: string; to: string; merged: boolean }[];
   /** Tətbiqdən sonrakı vəziyyət (yazma bundan diffOps ilə yaranır) */
   next: Snapshot;
 };
@@ -251,29 +260,149 @@ export type ImportMode = 'merge' | 'replace';
 
 const same = (a: unknown, b: unknown) => (a ?? null) === (b ?? null) || String(a ?? '') === String(b ?? '');
 
+/** Fayldakı icraçılar (ilkin + yeni) → sətir sayı. */
+export function fileOwners(rows: readonly ParsedRow[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows)
+    for (const n of [r.data.owner_before, r.data.owner_after]) {
+      const v = String(n ?? '').trim();
+      if (v) out.set(v, (out.get(v) ?? 0) + 1);
+    }
+  return out;
+}
+
+/* Ad uyğunluğu: "Ağaəli" ≈ "Ağaəli Soyadlı", "Sveta x" ≈ "Svetlana …", "Farida" ≈ "Fəridə …" (ə/e/a yazılışı fərqli) */
+const nameTokens = (n: string) =>
+  fold(n)
+    .replace(/e/g, 'a') // ə/e/a yazılış fərqləri (Fəridə/Farida, Mədinə/Medina)
+    .split(/[^a-z]+/)
+    .filter((x) => x.length >= 3);
+function lev1(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  const tail = (x: string, k: number) => x.slice(i + k);
+  return (
+    tail(a, 1) === tail(b, 1) || tail(a, 1) === tail(b, 0) || tail(a, 0) === tail(b, 1) // əvəz / silmə / əlavə
+  );
+}
+/** Qısaltma: ümumi başlanğıc ≥ 4 hərf və qısa sözün ən çox 1 hərfi fərqlidir ("Sveta" ≈ "Svetlana"). */
+function shortForm(a: string, b: string): boolean {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i >= 4 && i >= Math.min(a.length, b.length) - 1;
+}
+/** 0 = eyni söz, 1 = bir hərf fərqi və ya qısaltma, null = uyğun deyil. */
+function nameScore(oldName: string, newName: string): number | null {
+  let best: number | null = null;
+  for (const a of nameTokens(oldName))
+    for (const b of nameTokens(newName)) {
+      const sc = a === b ? 0 : Math.min(a.length, b.length) >= 4 && (lev1(a, b) || shortForm(a, b)) ? 1 : null;
+      if (sc != null && (best == null || sc < best)) best = sc;
+    }
+  return best;
+}
+
+/**
+ * Faylda olan, amma siyahıda olmayan icraçılar üçün köhnə əməkdaşın yeni adını təklif edir (köhnə → yeni).
+ * Yalnız faylda adı keçməyən (qrup olmayan) əməkdaşlar namizəddir; bir köhnə ada bir yeni ad (ən yaxşı uyğunluq,
+ * bərabərlikdə faylda daha çox keçən). Bir neçə köhnə ad eyni yeni ada gedə bilər — dublikatlar birləşir (Kamila/Kamilə).
+ */
+export function suggestRenames(employees: readonly EmployeeDoc[], rows: readonly ParsedRow[]): Record<string, string> {
+  const owners = fileOwners(rows);
+  const known = new Set(employees.map((e) => e.name));
+  const fresh = [...owners.keys()].filter((n) => !known.has(n));
+  const out: Record<string, string> = {};
+  for (const e of employees) {
+    if (e.is_group || owners.has(e.name)) continue;
+    let pick: { n: string; sc: number; c: number } | null = null;
+    for (const n of fresh) {
+      const sc = nameScore(e.name, n);
+      if (sc == null) continue;
+      const c = owners.get(n) ?? 0;
+      if (!pick || sc < pick.sc || (sc === pick.sc && c > pick.c)) pick = { n, sc, c };
+    }
+    if (pick) out[e.name] = pick.n;
+  }
+  return out;
+}
+
+const ACTS = [ACT_ADMIN, ACT_PROJECT];
+const toAct = (v: unknown) => ACTS.find((a) => fold(a) === fold(v)) ?? '';
+
 /**
  * Faylın sətirlərini cari vəziyyətlə müqayisə edir.
+ * - `renames` (köhnə ad → yeni ad) ƏVVƏLCƏ tətbiq olunur: əməkdaş profili (ştat, fəaliyyət forması) yeni adla qalır,
+ *   tapşırıqlardakı icraçı adları dəyişir; yeni ad artıq varsa profillər birləşir;
  * - id mövcuddursa → yalnız fayldakı (xəritədəki) DOLU xanalar yenilənir; boş xana və xəritədə olmayan sütun = dəyişmə;
  * - id yoxdursa / tapılmırsa → yeni tapşırıq (id verilməyibsə `T-…`);
  * - `replace` (yalnız admin): faylda olmayan tapşırıqlar SİLİNİR (yumşaq, geri alınır);
- * - xətalı sətirlər heç vaxt tətbiq olunmur.
+ * - xətalı sətirlər heç vaxt tətbiq olunmur;
+ * - yeni yaranan əməkdaşın fəaliyyət forması fayldakı "Fəaliyyət forması" sütunundan (saatca üstün olan) götürülür.
  */
 export function importPlan(
   live: Snapshot,
   rows: readonly ParsedRow[],
-  { mode = 'merge', defaultCompany = 'Birbank', newId }: { mode?: ImportMode; defaultCompany?: string; newId: () => string },
+  {
+    mode = 'merge',
+    defaultCompany = 'Birbank',
+    newId,
+    renames = {},
+  }: { mode?: ImportMode; defaultCompany?: string; newId: () => string; renames?: Record<string, string> },
 ): ImportPlan {
-  const byId = new Map(live.tasks.map((t) => [t.id, t]));
-  const tasks = new Map(live.tasks.map((t) => [t.id, t]));
-  const plan: ImportPlan = { created: [], changed: [], unchanged: 0, deleted: [], errors: [], newEmployees: [], next: live };
+  const plan: ImportPlan = {
+    created: [],
+    changed: [],
+    unchanged: 0,
+    deleted: [],
+    errors: [],
+    newEmployees: [],
+    renamed: [],
+    next: live,
+  };
+  // 0) Ad dəyişmələri
+  let emps: EmployeeDoc[] = [...live.employees];
+  const ren = new Map<string, string>();
+  for (const [from, rawTo] of Object.entries(renames)) {
+    const to = String(rawTo ?? '').trim();
+    if (!to || to === from) continue;
+    const i = emps.findIndex((e) => e.name === from);
+    if (i < 0) continue;
+    const merged = emps.some((e) => e.name === to);
+    if (merged) emps = emps.filter((e) => e.name !== from);
+    else emps[i] = { ...emps[i], name: to, _v: 0 }; // sənəd açarı addır → köhnə silinir, yenisi yaranır
+    ren.set(from, to);
+    plan.renamed.push({ from, to, merged });
+  }
+  const fix = (n: string) => ren.get(n) ?? n;
+  const baseTasks = ren.size
+    ? live.tasks.map((t) =>
+        ren.has(t.owner_before) || ren.has(t.owner_after)
+          ? { ...t, owner_before: fix(t.owner_before), owner_after: fix(t.owner_after) }
+          : t,
+      )
+    : live.tasks;
+
+  const byId = new Map(baseTasks.map((t) => [t.id, t]));
+  const tasks = new Map(baseTasks.map((t) => [t.id, t]));
   const now = new Date().toISOString();
   const seen = new Set<string>();
+  const actHours = new Map<string, Map<string, number>>();
+  const noteAct = (t: TaskDoc, act: string) => {
+    const o = curOwner(t);
+    if (!o || !act) return;
+    const m = actHours.get(o) ?? new Map<string, number>();
+    m.set(act, (m.get(act) ?? 0) + (t.hours || 0) + 1e-6); // +ε: saatsız sətir də səs versin
+    actHours.set(o, m);
+  };
   for (const r of rows) {
     if (r.errors.length) {
       plan.errors.push({ row: r.row, errors: r.errors });
       continue;
     }
     const d = { ...r.data };
+    const act = toAct(d.activity);
+    delete d.activity; // tapşırığa yazılmır
     // Saat boşdursa dəqiqə × tezlik / 60
     if (d.hours == null && typeof d.min_per_key === 'number' && typeof d.annual_freq === 'number')
       d.hours = Math.round(((d.min_per_key * d.annual_freq) / 60) * 100) / 100;
@@ -303,6 +432,7 @@ export function importPlan(
       }
       if (!fields.length) {
         plan.unchanged++;
+        noteAct(cur, act);
         continue;
       }
       const next = {
@@ -310,30 +440,36 @@ export function importPlan(
         _v: cur._v,
       };
       tasks.set(id, next);
+      noteAct(next, act);
       plan.changed.push({ id, label: `${next.process} — ${next.task}`, fields });
       continue;
     }
     const nid = id || newId();
     const t = { ...normalizeTask({ ...d, id: nid, company: d.company || defaultCompany, updated_at: now }), _v: 0 };
     tasks.set(nid, t);
+    noteAct(t, act);
     seen.add(nid);
     plan.created.push(t);
   }
   if (mode === 'replace')
-    for (const t of live.tasks)
+    for (const t of baseTasks)
       if (!seen.has(t.id)) {
         tasks.delete(t.id);
         plan.deleted.push(t);
       }
-  // İcraçılar əməkdaş siyahısında yoxdursa — yaradılır (v1 davranışı)
-  const emps: EmployeeDoc[] = [...live.employees];
+  // İcraçılar əməkdaş siyahısında yoxdursa — yaradılır (v1 davranışı); fəaliyyət forması fayldan
   const names = new Set(emps.map((e) => e.name));
+  const actOf = (n: string) => {
+    const m = actHours.get(n);
+    if (!m) return ACT_ADMIN;
+    return [...m.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  };
   for (const t of [...plan.created, ...plan.changed.map((c) => tasks.get(c.id)!)])
     for (const n of [t.owner_before, t.owner_after])
       if (n && !names.has(n)) {
         names.add(n);
         plan.newEmployees.push(n);
-        emps.push({ ...normalizeEmployee({ name: n, company: t.company, activity: ACT_ADMIN }), _v: 0 });
+        emps.push({ ...normalizeEmployee({ name: n, company: t.company, activity: actOf(n) }), _v: 0 });
       }
   plan.next = { ...live, tasks: [...tasks.values()], employees: emps };
   return plan;

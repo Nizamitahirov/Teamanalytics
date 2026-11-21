@@ -10,10 +10,12 @@ import { useCan } from '../../app/useCan';
 import { Button } from '../../components/Button';
 import {
   detectMapping,
+  fileOwners,
   IMPORT_FIELDS,
   importPlan,
   mappingSignature,
   parseSheet,
+  suggestRenames,
   type ImportField,
   type Mapping,
 } from '../../../shared/excel';
@@ -61,6 +63,8 @@ export function ImportPage() {
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState('');
+  // Ad uyğunlaşdırması: istifadəçinin təklifə düzəlişi (köhnə ad → yeni ad, '' = dəyişmə)
+  const [renameOver, setRenameOver] = useState<Record<string, string>>({});
   // Yeni tapşırıq id-lərinin bazası — bir dəfə (render zamanı Date.now() çağırılmır)
   const [idBase] = useState(() => Date.now().toString(36));
 
@@ -68,6 +72,17 @@ export function ImportPage() {
   const headers = sheet?.rows[0] ?? [];
   const live: Snapshot = useMemo(() => ({ tasks, employees, settings }), [tasks, employees, settings]);
   const parsed = useMemo(() => (sheet && step >= 3 ? parseSheet(sheet.rows, mapping) : []), [sheet, mapping, step]);
+  const owners = useMemo(() => fileOwners(parsed), [parsed]);
+  const fresh = useMemo(() => {
+    const known = new Set(employees.map((e) => e.name));
+    return [...owners.keys()].filter((n) => !known.has(n)).sort((a, b) => a.localeCompare(b, 'az'));
+  }, [owners, employees]);
+  // Namizədlər: faylda adı keçməyən, qrup olmayan əməkdaşlar (yalnız faylda yeni ad varsa)
+  const absent = useMemo(
+    () => (fresh.length ? employees.filter((e) => !e.is_group && !owners.has(e.name)).map((e) => e.name) : []),
+    [employees, owners, fresh],
+  );
+  const renames = useMemo(() => ({ ...suggestRenames(employees, parsed), ...renameOver }), [employees, parsed, renameOver]);
   const plan = useMemo(() => {
     if (step < 3) return null;
     let i = 0;
@@ -76,8 +91,9 @@ export function ImportPage() {
       mode: mode === 'replace' ? 'replace' : 'merge',
       defaultCompany: company,
       newId: () => `T-${base}${(i++).toString(36)}`,
+      renames,
     });
-  }, [live, parsed, mode, company, step, idBase]);
+  }, [live, parsed, mode, company, step, idBase, renames]);
   const companies = useMemo(() => [...new Set(tasks.map((x) => x.company))].sort(), [tasks]);
 
   if (!canEdit) return <p>{t('imp.noAccess')}</p>;
@@ -125,6 +141,12 @@ export function ImportPage() {
         changed: plan.changed.length,
         deleted: plan.deleted.length,
       });
+      const renLogs = plan.renamed.map((r) => ({
+        action: 'Əməkdaş',
+        task_label: r.merged ? t('imp.renLogMerge', { from: r.from, to: r.to }) : t('imp.renLog', { from: r.from, to: r.to }),
+        from: r.from,
+        to: r.to,
+      }));
       if (mode === 'scenario') {
         const ch = makeChange('import', summary, live, plan.next);
         if (!ch) return void toast(t('chg.noop'));
@@ -139,7 +161,7 @@ export function ImportPage() {
           d.tasks = plan.next.tasks as typeof d.tasks;
           d.employees = plan.next.employees as typeof d.employees;
         },
-        [{ action: 'Import', task_label: summary, comment: mode === 'replace' ? 'əvəz et' : 'yenilə/əlavə et' }],
+        [...renLogs, { action: 'Import', task_label: summary, comment: mode === 'replace' ? 'əvəz et' : 'yenilə/əlavə et' }],
       );
       toast(t('imp.done'), { action: { label: t('top.undo'), fn: () => dataStore.getState().undoLast() } });
       navigate('/tasks');
@@ -153,7 +175,7 @@ export function ImportPage() {
   const STEPS = ['imp.s1', 'imp.s2', 'imp.s3', 'imp.s4'] as const;
   const errors = plan?.errors ?? [];
   const blocked = errors.length > 0 && !onlyValid;
-  const nothing = !!plan && !plan.created.length && !plan.changed.length && !plan.deleted.length;
+  const nothing = !!plan && !plan.created.length && !plan.changed.length && !plan.deleted.length && !plan.renamed.length;
 
   return (
     <>
@@ -292,6 +314,46 @@ export function ImportPage() {
               <span>{t('imp.errors')}</span>
             </div>
           </div>
+          {absent.length > 0 && (
+            <>
+              <h3 className={s.h3}>{t('imp.renTitle')}</h3>
+              <p className={s.muted}>{t('imp.renHint')}</p>
+              <div className={s.scroller}>
+                <table className={s.wizardTable} data-testid="imp-renames">
+                  <thead>
+                    <tr>
+                      <th scope="col">{t('imp.renOld')}</th>
+                      <th scope="col">{t('imp.renNew')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {absent.map((n) => (
+                      <tr key={n}>
+                        <td>
+                          <b>{n}</b>
+                        </td>
+                        <td>
+                          <select
+                            className={f.input}
+                            aria-label={t('imp.renFor', { name: n })}
+                            value={renames[n] ?? ''}
+                            onChange={(e) => setRenameOver((o) => ({ ...o, [n]: e.target.value }))}
+                          >
+                            <option value="">{t('imp.renKeep')}</option>
+                            {fresh.map((x) => (
+                              <option key={x} value={x}>
+                                {x}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
           {errors.length > 0 && (
             <>
               <h3 className={s.h3}>{t('imp.errorsTitle')}</h3>
@@ -379,6 +441,16 @@ export function ImportPage() {
           {mode === 'replace' && (
             <>
               <p className={s.danger}>{t('imp.replaceWarn', { n: plan.deleted.length })}</p>
+              {plan.deleted.length > 0 && (
+                <ul className={s.diffList} data-testid="imp-deleted">
+                  {plan.deleted.slice(0, PREVIEW).map((c) => (
+                    <li key={c.id}>
+                      {c.id} · {c.process} — {c.task} · {c.owner_after || c.owner_before || '—'} · {show(c.hours)}{' '}
+                      {t('unit.hours')}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <label className={f.check}>
                 <input type="checkbox" checked={confirmReplace} onChange={(e) => setConfirmReplace(e.target.checked)} />
                 {t('imp.replaceConfirm')}

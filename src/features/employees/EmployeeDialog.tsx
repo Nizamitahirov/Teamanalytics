@@ -27,7 +27,7 @@ export function EmployeeDialog({ name, onClose }: { name: string | null; onClose
   const [touched, setTouched] = useState(false);
 
   const companies = useMemo(
-    () => [...new Set(['Birbank', 'Pashapay', ...employees.map((e) => e.company)])].filter(Boolean),
+    () => [...new Set(['Birbank', 'Pashapay', 'Birmarket', ...employees.map((e) => e.company)])].filter(Boolean),
     [employees],
   );
   const own = useMemo(() => (name ? tasks.filter((x) => x.owner_before === name || x.owner_after === name) : []), [tasks, name]);
