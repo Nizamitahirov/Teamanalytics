@@ -823,4 +823,12 @@ export const en: Dict = {
   'dash.attentionEmpty': 'All good — nobody is over the norm',
   'dash.overBy': '+{h} h over the norm',
   'dash.attentionAll': 'See all ({n})',
+  'dash.cap.util': 'Headcount utilisation (needed ÷ available)',
+  'dash.cap.reserve': 'Reserve: {v} FTE free',
+  'dash.cap.shortage': 'Shortage: {v} FTE more needed',
+  'dash.mx.share': 'Share of total hours: {p}',
+  'dash.mx.sharePct': 'Share',
+  'dash.mx.fte': 'FTE',
+  'dash.mx.people': 'People',
+  'dash.mx.tasks': 'Tasks',
 };

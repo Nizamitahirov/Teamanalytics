@@ -279,10 +279,20 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: var(--sp-4);
-  align-items: start;
+  align-items: stretch;
 }
+/* Sol sütun sağ panelin hündürlüyünə uzanır — KPI kartları qalan yeri bərabər bölür (boşluq qalmır) */
 .mainCol {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+}
+.mainCol > .kpis {
+  flex: 1;
+  grid-auto-rows: 1fr;
+}
+.mainCol .card {
+  align-items: center;
 }
 @media (max-width: 1279.98px) {
   .top {

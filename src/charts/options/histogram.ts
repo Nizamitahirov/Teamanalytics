@@ -1,7 +1,7 @@
 // 10. Yük paylanması — 10% addımlı histogram; median və norma (100%) xətləri.
 import { fmtPct } from '../../../shared/format';
 import type { loadHistogram } from '../../../shared/dashboard';
-import { axisStyle, base, type ChartSpec, type ChartTheme } from '../theme';
+import { axisStyle, base, type ChartSpec, type ChartTheme, glow, vGradA } from '../theme';
 import type { T } from './types';
 
 export function histogramOption(h: ReturnType<typeof loadHistogram>, th: ChartTheme, t: T): ChartSpec {
@@ -52,7 +52,10 @@ export function histogramOption(h: ReturnType<typeof loadHistogram>, th: ChartTh
           barCategoryGap: '22%',
           data: h.bins.map((b) => ({
             value: b.names.length,
-            itemStyle: { color: b.from >= 1 - 1e-9 ? th.critical : th.neutral, borderRadius: [6, 6, 0, 0] },
+            itemStyle:
+              b.from >= 1 - 1e-9
+                ? { color: vGradA(th.critical, 0.5), borderRadius: [10, 10, 4, 4], ...glow(th, th.critical) }
+                : { color: vGradA(th.neutral, 0.45), borderRadius: [10, 10, 4, 4] },
           })),
           label: {
             show: true,
