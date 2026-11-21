@@ -85,7 +85,7 @@ export function CompanyTiles({ cells, colorOf }: { cells: Cell[]; colorOf: (comp
               {empty ? '—' : fmtHours(c.hours)}
               {!empty && <small>{t('unit.hours')}</small>}
             </div>
-            <div className={s.share} aria-label={t('dash.mx.share', { p: fmtPct(share) })}>
+            <div className={s.share} aria-hidden="true">
               <span style={{ width: `${Math.max(share * 100, empty ? 0 : 2)}%` }} />
             </div>
             <dl className={s.stats}>
