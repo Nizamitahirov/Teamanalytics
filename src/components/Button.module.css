@@ -3,12 +3,12 @@
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
-  min-height: 36px;
+  min-height: 38px;
   font-family: inherit;
   letter-spacing: -0.005em;
   padding: 0 var(--sp-4);
   border: 1px solid transparent;
-  border-radius: var(--r-md);
+  border-radius: var(--r-pill);
   font-weight: 600;
   font-size: var(--fs-14);
   white-space: nowrap;
@@ -33,7 +33,7 @@
   min-height: 30px;
   padding: 0 var(--sp-3);
   font-size: var(--fs-13);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
 }
 .primary {
   background: var(--primary);
@@ -78,7 +78,7 @@
   outline-offset: 2px;
 }
 .icon {
-  width: 36px;
+  width: 38px;
   padding: 0;
 }
 .icon.sm {

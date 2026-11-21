@@ -820,6 +820,10 @@ export const az = {
   'rep.period.total': 'Ümumi',
   'rep.period.people': 'Əməkdaşların yükü',
   'rep.period.normChanged': 'Effektiv norma dəyişib: {a} → {b} saat — FTE rəqəmləri birbaşa müqayisə edilərkən nəzərə alın.',
+  'dash.attention': 'Diqqət tələb edir',
+  'dash.attentionEmpty': 'Hər şey qaydasındadır — normanı aşan yoxdur',
+  'dash.overBy': 'normadan +{h} saat',
+  'dash.attentionAll': 'Hamısına bax ({n})',
 } as const;
 
 export type MessageKey = keyof typeof az;

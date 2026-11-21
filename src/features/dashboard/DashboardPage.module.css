@@ -9,14 +9,14 @@
   display: inline-flex;
   padding: 3px;
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  border-radius: var(--r-pill);
   background: var(--surface);
 }
 .seg button {
   min-height: 32px;
   padding: 0 var(--sp-3);
   border: none;
-  border-radius: 9px;
+  border-radius: var(--r-pill);
   background: none;
   color: var(--text-2);
   font-weight: 600;
@@ -94,7 +94,7 @@
   align-items: center;
   gap: 4px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: color-mix(in srgb, var(--good) 12%, var(--surface));
   color: var(--good-text);
 }
@@ -116,7 +116,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--series-now, #f2501e);
+  background: var(--brand);
 }
 .meter > span[data-over='true'] {
   background: var(--critical);
@@ -272,4 +272,33 @@
   flex-shrink: 0;
   margin-top: 2px;
   color: var(--brand-text);
+}
+
+/* v2.2: əsas sütun + sağda "Diqqət tələb edir" paneli (Roster nümunəsi) */
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--sp-4);
+  align-items: start;
+}
+.mainCol {
+  min-width: 0;
+}
+@media (max-width: 1279.98px) {
+  .top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.valueRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+/* Sağ panel olanda KPI kartları 2×2 (dar sütunda 4 kart sıxılırdı) */
+@media (min-width: 1280px) {
+  .mainCol .kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

@@ -819,4 +819,8 @@ export const en: Dict = {
   'rep.period.total': 'Total',
   'rep.period.people': 'Employee load',
   'rep.period.normChanged': 'The effective norm changed: {a} → {b} hours — keep this in mind when comparing FTE.',
+  'dash.attention': 'Needs attention',
+  'dash.attentionEmpty': 'All good — nobody is over the norm',
+  'dash.overBy': '+{h} h over the norm',
+  'dash.attentionAll': 'See all ({n})',
 };

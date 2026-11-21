@@ -77,13 +77,13 @@
   display: inline-flex;
   padding: 2px;
   border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
 }
 .seg button {
   min-height: 28px;
   padding: 0 var(--sp-2);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--r-pill);
   background: none;
   color: var(--text-2);
   font-size: var(--fs-12);
