@@ -188,3 +188,16 @@
   padding-left: 20px;
   line-height: 1.7;
 }
+.notice {
+  display: grid;
+  gap: var(--sp-2);
+  justify-items: start;
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid rgba(250, 178, 25, 0.5);
+  border-radius: var(--r-md);
+  background: rgba(250, 178, 25, 0.08);
+}
+.notice p {
+  margin: 0;
+}
