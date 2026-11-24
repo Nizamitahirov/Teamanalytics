@@ -13,7 +13,8 @@ export function useSyncLoop(onUnauthorized: () => void) {
     let stopped = false;
     const s = () => dataStore.getState();
     const pull = async () => {
-      if (stopped || document.visibilityState !== 'visible' || !s().online) return;
+      // "offline" bayrağına baxmırıq: bayraq yalnız sorğu xətasından da qoyula bilər; uğurlu sorğu onu özü götürür
+      if (stopped || document.visibilityState !== 'visible' || !navigator.onLine) return;
       try {
         await s().pull();
       } catch (e) {

@@ -69,6 +69,8 @@ export type DataStoreState = {
   redoLast(): void;
   flush(): Promise<void>;
   setOnline(online: boolean): void;
+  /** Əl ilə sinxron: növbəni göndər, sonra serverdən TAM yüklə (lokal keş serverlə eyniləşir). */
+  syncNow(): Promise<void>;
   resolveConflict(c: ClientConflict, choice: 'mine' | 'theirs'): void;
   clearLocal(): Promise<void>;
 };
@@ -340,8 +342,14 @@ export function createDataStore(deps: DataStoreDeps) {
         }
         if (d.user && d.user !== get().user) set({ user: d.user });
         if (d.commit && d.commit !== get().serverCommit) set({ serverCommit: d.commit });
-        // Göndərilməmiş dəyişiklik varsa serverdən gələni hələ tətbiq etmə (öz dəyişikliyimiz itməsin)
-        if (get().queue.length || get().sending) return false;
+        // Server cavab verdi → bağlantı var. Göndərilməmiş dəyişiklik varsa serverdən gələni hələ tətbiq etmə
+        // (öz dəyişikliyimiz itməsin), amma növbəni yenidən göndər — əvvəllər bir dəfəlik şəbəkə xətasından sonra
+        // brauzer "offline" hadisəsi vermirsə növbə əbədi ilişirdi və bu kompüter başqalarının dəyişikliyini görmürdü.
+        if (!get().online) set({ online: true });
+        if (get().queue.length || get().sending) {
+          if (!get().sending) void get().flush();
+          return false;
+        }
         applyServerData(d);
         set({ lastTs: d.ts ?? get().lastTs, ready: true, online: true, status: 'idle', error: null, syncedAt: now() });
         persistSoon();
@@ -460,6 +468,15 @@ export function createDataStore(deps: DataStoreDeps) {
             .catch(() => undefined);
           set({ status: 'error', error: message(e) });
         }
+      },
+
+      async syncNow() {
+        if (!get().online) set({ online: true });
+        await get().flush();
+        if (get().queue.length) return; // göndərilə bilmədi — status bunu göstərir
+        await get()
+          .pull({ full: true })
+          .catch(() => undefined);
       },
 
       setOnline(online) {

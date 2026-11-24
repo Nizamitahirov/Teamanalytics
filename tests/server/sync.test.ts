@@ -239,6 +239,39 @@ describe('offline növbə + IndexedDB keşi', () => {
     expect(store.getState()).toMatchObject({ online: false, status: 'offline' });
   });
 
+  it('bir dəfəlik şəbəkə xətası (brauzer "online" hadisəsi vermir) → növbəti yoxlama növbəni göndərir və sinxron bərpa olunur', async () => {
+    const { store, net } = await makeStore();
+    net.offline = true;
+    store.getState().commit('blip', (d) => void (d.tasks.find((x) => x.id === 'B-13')!.hours = 13));
+    await idle(store);
+    expect(store.getState()).toMatchObject({ online: false, status: 'offline' });
+    expect(store.getState().queue).toHaveLength(1);
+    net.offline = false;
+    // Başqa istifadəçinin dəyişikliyi
+    B.getState().commit('B', (d) => void (d.tasks.find((x) => x.id === 'B-14')!.hours = 14));
+    await idle(B);
+    // 10 s-lik dövr: setOnline çağırılmadan pull → növbə göndərilir
+    expect(await store.getState().pull()).toBe(false);
+    await idle(store);
+    expect(Number(doc('tasks/B-13').hours)).toBe(13);
+    expect(store.getState().queue).toHaveLength(0);
+    // növbəti dövr serverdən gələni tətbiq edir
+    expect(await store.getState().pull()).toBe(true);
+    expect(task(store, 'B-14').hours).toBe(14);
+    expect(store.getState()).toMatchObject({ online: true, status: 'idle' });
+  });
+
+  it('"İndi sinxronlaşdır" — növbəni göndərir və datanı serverdən tam yükləyir', async () => {
+    const { store } = await makeStore();
+    // lokal keş serverdən fərqlidir (növbəsiz) — məs. köhnə keş
+    store.setState((st) => ({
+      data: { ...st.data, tasks: st.data.tasks.map((t) => (t.id === 'B-15' ? { ...t, hours: 999 } : t)) },
+    }));
+    await store.getState().syncNow();
+    expect(task(store, 'B-15').hours).toBe(Number(doc('tasks/B-15').hours));
+    expect(store.getState().status).toBe('idle');
+  });
+
   it('server dəyişikliyi rədd edirsə növbə atılır və tam yükləmə olur', async () => {
     const { store } = await makeStore();
     store.getState().commit('pis', (d) => void (d.tasks.find((x) => x.id === 'B-12')!.task = 'x'.repeat(3000)));

@@ -72,6 +72,7 @@ export const en: Dict = {
   'sync.saving': 'Saving… ({n})',
   'sync.offline': 'Offline — {n} changes pending',
   'sync.offlineEmpty': 'Offline',
+  'sync.clickToSync': 'Click to sync with the server now',
   'sync.error': 'Not saved',
   'top.undoWith': 'Undo: {label}',
   'top.redoWith': 'Redo: {label}',
