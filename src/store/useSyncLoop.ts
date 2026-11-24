@@ -12,11 +12,14 @@ export function useSyncLoop(onUnauthorized: () => void) {
   useEffect(() => {
     let stopped = false;
     const s = () => dataStore.getState();
+    // Səhifə açılanda ilk uğurlu yükləmə TAM olur (delta yox): keşdə nə qalıbsa qalsın, hər açılışda data serverlə
+    // eyniləşir (iki kompüterdə fərqli rəqəm görünməsin). Növbə varsa tam yükləmə növbə göndərilənə qədər gözləyir.
+    let needFull = true;
     const pull = async () => {
       // "offline" bayrağına baxmırıq: bayraq yalnız sorğu xətasından da qoyula bilər; uğurlu sorğu onu özü götürür
       if (stopped || document.visibilityState !== 'visible' || !navigator.onLine) return;
       try {
-        await s().pull();
+        if (await s().pull({ full: needFull })) needFull = false;
       } catch (e) {
         if (e instanceof ApiRequestError && e.status === 401) onUnauthorized();
       }
