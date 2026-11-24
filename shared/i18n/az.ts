@@ -380,6 +380,17 @@ export const az = {
   'staffCo.saveN': 'Yadda saxla ({n})',
   'staffCo.logLabel': '{n} əməkdaşın şirkəti dəyişdirildi',
   'staffCo.logRow': '{name}: şirkət {from} → {to}',
+  'staffCo.unusedTitle': 'Heç bir tapşırığı olmayan {n} əməkdaş:',
+  'staffCo.unusedHint':
+    'Bunlar adətən Excel importundan qalan köhnə adlardır (məs. qısa ad və ya "x" ilə yazılış). Silinsələr rəqəmlər dəyişmir.',
+  'staffCo.delAll': 'Tapşırığı olmayanları sil ({n})',
+  'staffCo.delConfirm': 'Bəli, sil',
+  'staffCo.delText':
+    'Bu əməkdaşlar siyahıdan silinəcək: {names}. Heç bir tapşırıq və rəqəm dəyişmir; "Geri al" ilə qaytarmaq olar.',
+  'staffCo.delLabel': 'Tapşırığı olmayan {n} əməkdaş silindi',
+  'staffCo.delRow': '{name} silindi (tapşırığı yox idi)',
+  'staffCo.deleted': '{n} əməkdaş silindi',
+  'staffCo.noTasks': 'tapşırığı yoxdur',
   'set.tab.keys': 'Qısayollar',
   'set.role': 'Rol',
   'set.changePassword': 'Parolu dəyiş',
