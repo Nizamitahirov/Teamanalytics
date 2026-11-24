@@ -1,5 +1,6 @@
 import { useI18n } from '../../lib/i18n';
-import { useData } from '../../store';
+import { useState } from 'react';
+import { dataStore, useData } from '../../store';
 
 // Saat Bakı vaxtı ilə (SPEC §12.4)
 const timeFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Baku' });
@@ -23,16 +24,31 @@ export function SyncPill({ className }: { className?: string }) {
           : status === 'idle'
             ? t('sync.idle', { time: syncedAt ? timeFmt.format(new Date(syncedAt)) : '—' })
             : t('sync.loading');
+  const [busy, setBusy] = useState(false);
+  // Klik — "İndi sinxronlaşdır": gözləyən dəyişikliklər göndərilir və data serverdən TAM yenidən yüklənir
+  const syncNow = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await dataStore.getState().syncNow();
+    } finally {
+      setBusy(false);
+    }
+  };
+  const hint = t('sync.clickToSync');
   return (
-    <div
+    <button
+      type="button"
       className={className}
-      role="status"
       data-status={status}
-      title={status === 'error' && error ? error : text}
+      data-busy={busy || undefined}
+      title={`${status === 'error' && error ? error : text} — ${hint}`}
+      aria-label={`${text}. ${hint}`}
+      onClick={() => void syncNow()}
       data-testid="sync-pill"
     >
       <i aria-hidden="true" />
-      <span>{text}</span>
-    </div>
+      <span aria-live="polite">{text}</span>
+    </button>
   );
 }

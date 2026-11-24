@@ -70,6 +70,7 @@ export const az = {
   'sync.saving': 'Saxlanır… ({n})',
   'sync.offline': 'Offline — {n} dəyişiklik gözləyir',
   'sync.offlineEmpty': 'Offline',
+  'sync.clickToSync': 'Klikləyin — indi serverlə sinxronlaşdır',
   'sync.error': 'Yazılmadı',
   'top.undoWith': 'Geri al: {label}',
   'top.redoWith': 'İrəli al: {label}',

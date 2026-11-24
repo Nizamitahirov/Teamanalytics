@@ -13,21 +13,29 @@ export class ApiRequestError extends Error {
   }
 }
 
+export const REQUEST_TIMEOUT_MS = 60_000;
+
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, ...rest } = init;
   let res: Response;
+  // Asılı qalan sorğu sinxronu dayandırmasın: 60 s-dən sonra "şəbəkə xətası" sayılır və təkrar cəhd olunur
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), REQUEST_TIMEOUT_MS);
   try {
     res = await fetch(path, {
       credentials: 'same-origin',
+      signal: ctl.signal,
       ...rest,
       method: rest.method ?? (json !== undefined ? 'POST' : 'GET'),
       headers: { 'Content-Type': 'application/json', ...rest.headers },
       body: json !== undefined ? JSON.stringify(json) : rest.body,
     });
   } catch {
+    clearTimeout(timer);
     throw new ApiRequestError('network', 0, 'network');
   }
   const body = (await res.json().catch(() => ({}))) as Partial<ApiError> & T;
+  clearTimeout(timer);
   if (!res.ok)
     throw new ApiRequestError(
       body.error || `Server xətası (${res.status})`,

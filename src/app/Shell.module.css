@@ -133,13 +133,34 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  width: 100%;
   padding: 7px 10px;
+  border: none;
   border-radius: 10px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.75);
   font-size: var(--fs-12);
   font-weight: 600;
   white-space: nowrap;
+}
+.pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.pill[data-busy] i {
+  animation: pillPulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes pillPulse {
+  to {
+    opacity: 0.3;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pill[data-busy] i {
+    animation: none;
+  }
 }
 .pill i {
   width: 8px;
@@ -376,6 +397,7 @@
   }
   .mobilePill {
     display: flex;
+    width: auto;
     max-width: 44vw;
     overflow: hidden;
     background: var(--ink);
